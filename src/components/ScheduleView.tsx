@@ -1,0 +1,642 @@
+import React, { useState, useEffect } from 'react';
+import type { Appointment, Break, ScheduleItem } from '../types';
+import { AppointmentBlock } from './AppointmentBlock';
+import { BreakBlock } from './BreakBlock';
+import { ScheduleMiniMap } from './ScheduleMiniMap';
+import { parseISO, format, setHours, setMinutes } from 'date-fns';
+import { uk } from 'date-fns/locale';
+
+interface ScheduleViewProps {
+  appointments: Appointment[];
+  breaks: Break[];
+  onUpdateAppointment: (id: string, updates: Partial<Appointment>) => void;
+  onUpdateBreak: (id: string, updates: Partial<Break>) => void;
+  onDeleteAppointment: (id: string) => void;
+  onDeleteBreak: (id: string) => void;
+  onEditAppointment: (appointment: Appointment) => void;
+  startHour?: number;
+  endHour?: number;
+  pixelsPerHour?: number;
+}
+
+/**
+ * Main schedule view component with drag-and-drop timeline
+ * Displays appointments and breaks on a vertical timeline
+ */
+export const ScheduleView: React.FC<ScheduleViewProps> = ({
+  appointments,
+  breaks,
+  onUpdateAppointment,
+  onUpdateBreak,
+  onDeleteAppointment,
+  onDeleteBreak,
+  onEditAppointment,
+  startHour = 7,
+  endHour = 23,
+  pixelsPerHour = 560,
+}) => {
+  const [dragItem, setDragItem] = useState<{
+    id: string;
+    type: 'appointment' | 'break';
+    startY: number;
+    startTime: string;
+  } | null>(null);
+
+  const [resizeItem, setResizeItem] = useState<{
+    id: string;
+    type: 'appointment' | 'break';
+    startY: number;
+    startDuration: number;
+    handle: 'top' | 'bottom';
+    originalStartTime?: string;
+  } | null>(null);
+
+  const totalHours = endHour - startHour;
+  const scheduleHeight = totalHours * pixelsPerHour;
+
+  /**
+   * Calculate position for a schedule item
+   */
+  const getItemPosition = (item: ScheduleItem): number => {
+    const itemTime = parseISO(item.start_time);
+    const itemHour = itemTime.getHours();
+    const itemMinute = itemTime.getMinutes();
+    const hoursFromStart = itemHour - startHour + itemMinute / 60;
+    return hoursFromStart * pixelsPerHour;
+  };
+
+  /**
+   * Check if a time range overlaps with any existing items
+   */
+  const hasOverlap = (
+    itemId: string,
+    newStartTime: Date,
+    durationMinutes: number
+  ): boolean => {
+    const newEndTime = new Date(newStartTime.getTime() + durationMinutes * 60000);
+    
+    // Check all appointments
+    for (const apt of appointments) {
+      if (apt.id === itemId) continue;
+      const aptStart = parseISO(apt.start_time);
+      const aptEnd = parseISO(apt.end_time);
+      
+      // Check if time ranges overlap
+      if (newStartTime < aptEnd && newEndTime > aptStart) {
+        return true;
+      }
+    }
+    
+    // Check all breaks
+    for (const brk of breaks) {
+      if (brk.id === itemId) continue;
+      const brkStart = parseISO(brk.start_time);
+      const brkEnd = parseISO(brk.end_time);
+      
+      // Check if time ranges overlap
+      if (newStartTime < brkEnd && newEndTime > brkStart) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  /**
+   * Check if a duration adjustment is valid
+   */
+  const canAdjustDuration = (
+    id: string,
+    currentDuration: number,
+    adjustment: number
+  ): boolean => {
+    const newDuration = currentDuration + adjustment;
+    
+    // Check minimum duration
+    if (newDuration < 5) return false;
+    
+    // Find the item
+    const appointment = appointments.find(a => a.id === id);
+    const breakItem = breaks.find(b => b.id === id);
+    const item = appointment || breakItem;
+    
+    if (!item) return false;
+    
+    const startTime = parseISO(item.start_time);
+    const endTime = new Date(startTime.getTime() + newDuration * 60000);
+    const maxTime = new Date(startTime);
+    maxTime.setHours(23, 0, 0, 0);
+    
+    // Check if end time exceeds 23:00
+    if (endTime > maxTime) return false;
+    
+    // Check for overlaps
+    if (hasOverlap(id, startTime, newDuration)) return false;
+    
+    return true;
+  };
+
+  /**
+   * Convert Y position to time with constraints (7:00 - 23:00)
+   */
+  const yToTime = (y: number, containerTop: number, scrollTop: number): Date => {
+    const relativeY = y - containerTop + scrollTop;
+    const hours = relativeY / pixelsPerHour;
+    const totalMinutes = Math.round((hours * 60) / 5) * 5; // Snap to 5 minutes
+
+    const date = new Date();
+    date.setHours(startHour, 0, 0, 0);
+    date.setMinutes(date.getMinutes() + totalMinutes);
+    
+    // Constrain to 7:00 - 23:00
+    const minTime = new Date();
+    minTime.setHours(7, 0, 0, 0);
+    const maxTime = new Date();
+    maxTime.setHours(23, 0, 0, 0);
+    
+    if (date < minTime) return minTime;
+    if (date > maxTime) return maxTime;
+    
+    return date;
+  };
+
+  /**
+   * Handle drag start
+   */
+  const handleDragStart = (
+    id: string,
+    type: 'appointment' | 'break',
+    startTime: string,
+    clientY: number
+  ) => {
+    setDragItem({ id, type, startY: clientY, startTime });
+  };
+
+  /**
+   * Handle resize start
+   */
+  const handleResizeStart = (
+    id: string,
+    type: 'appointment' | 'break',
+    currentDuration: number,
+    clientY: number,
+    handle: 'top' | 'bottom',
+    originalStartTime: string
+  ) => {
+    setResizeItem({ id, type, startY: clientY, startDuration: currentDuration, handle, originalStartTime });
+  };
+
+  /**
+   * Handle duration update with 23:00 constraint and overlap check
+   */
+  const handleUpdateDuration = (id: string, newDuration: number) => {
+    const appointment = appointments.find(a => a.id === id);
+    if (!appointment) return;
+
+    const startTime = parseISO(appointment.start_time);
+    const endTime = new Date(startTime.getTime() + newDuration * 60000);
+    const maxTime = new Date(startTime);
+    maxTime.setHours(23, 0, 0, 0);
+
+    // Check if end time exceeds 23:00
+    if (endTime > maxTime) {
+      const maxDuration = Math.floor((maxTime.getTime() - startTime.getTime()) / 60000);
+      if (maxDuration < 5) {
+        alert('Неможливо змінити тривалість: запис виходить за межі робочого часу (23:00)');
+        return;
+      }
+      newDuration = maxDuration;
+    }
+
+    // Check for overlaps
+    if (hasOverlap(id, startTime, newDuration)) {
+      alert('Неможливо змінити тривалість: запис перетинається з іншим записом або перервою');
+      return;
+    }
+
+    onUpdateAppointment(id, { duration_minutes: newDuration });
+  };
+
+  /**
+   * Handle break duration update with 23:00 constraint and overlap check
+   */
+  const handleUpdateBreakDuration = (id: string, newDuration: number) => {
+    const breakItem = breaks.find(b => b.id === id);
+    if (!breakItem) return;
+
+    const startTime = parseISO(breakItem.start_time);
+    const endTime = new Date(startTime.getTime() + newDuration * 60000);
+    const maxTime = new Date(startTime);
+    maxTime.setHours(23, 0, 0, 0);
+
+    // Check if end time exceeds 23:00
+    if (endTime > maxTime) {
+      const maxDuration = Math.floor((maxTime.getTime() - startTime.getTime()) / 60000);
+      if (maxDuration < 5) {
+        alert('Неможливо змінити тривалість: перерва виходить за межі робочого часу (23:00)');
+        return;
+      }
+      newDuration = maxDuration;
+    }
+
+    // Check for overlaps
+    if (hasOverlap(id, startTime, newDuration)) {
+      alert('Неможливо змінити тривалість: перерва перетинається з іншим записом або перервою');
+      return;
+    }
+
+    onUpdateBreak(id, { duration_minutes: newDuration });
+  };
+
+  /**
+   * Handle mouse/touch move
+   */
+  useEffect(() => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (dragItem) {
+        // Prevent scrolling while dragging on touch devices
+        if (e instanceof TouchEvent) {
+          e.preventDefault();
+        }
+      }
+      if (resizeItem) {
+        if (e instanceof TouchEvent) {
+          e.preventDefault();
+        }
+      }
+    };
+
+    const handleEnd = (e: MouseEvent | TouchEvent) => {
+      const clientY =
+        e instanceof MouseEvent ? e.clientY : e.changedTouches[0]?.clientY;
+
+      if (dragItem && clientY) {
+        const scheduleEl = document.getElementById('schedule-container');
+        if (scheduleEl) {
+          const rect = scheduleEl.getBoundingClientRect();
+          const newTime = yToTime(clientY, rect.top, scheduleEl.scrollTop);
+          
+          // Get current item to check its duration
+          const currentItem = dragItem.type === 'appointment'
+            ? appointments.find(a => a.id === dragItem.id)
+            : breaks.find(b => b.id === dragItem.id);
+          
+          if (currentItem) {
+            // Check for overlaps
+            if (hasOverlap(dragItem.id, newTime, currentItem.duration_minutes)) {
+              alert('Неможливо перемістити: новий час перетинається з іншим записом або перервою');
+              setDragItem(null);
+              return;
+            }
+            
+            const newTimeISO = newTime.toISOString();
+            if (dragItem.type === 'appointment') {
+              onUpdateAppointment(dragItem.id, { start_time: newTimeISO });
+            } else {
+              onUpdateBreak(dragItem.id, { start_time: newTimeISO });
+            }
+          }
+        }
+        setDragItem(null);
+      }
+
+      if (resizeItem && clientY) {
+        if (resizeItem.handle === 'bottom') {
+          // Bottom handle: adjust duration (end time changes, start time fixed)
+          const deltaY = clientY - resizeItem.startY;
+          const deltaMinutes = Math.round((deltaY / pixelsPerHour) * 60);
+          let newDuration = Math.max(
+            5,
+            Math.round((resizeItem.startDuration + deltaMinutes) / 5) * 5
+          );
+
+          // Get the current item to check end time constraint
+          const currentItem = resizeItem.type === 'appointment'
+            ? appointments.find(a => a.id === resizeItem.id)
+            : breaks.find(b => b.id === resizeItem.id);
+          
+          if (currentItem) {
+            const startTime = parseISO(currentItem.start_time);
+            const endTime = new Date(startTime.getTime() + newDuration * 60000);
+            const maxTime = new Date(startTime);
+            maxTime.setHours(23, 0, 0, 0);
+            
+            // If end time exceeds 23:00, cap the duration
+            if (endTime > maxTime) {
+              const maxDuration = Math.floor((maxTime.getTime() - startTime.getTime()) / 60000);
+              newDuration = Math.max(5, Math.floor(maxDuration / 5) * 5); // Snap to 5-min intervals
+            }
+            
+            // Check for overlaps
+            if (hasOverlap(resizeItem.id, startTime, newDuration)) {
+              alert('Неможливо змінити тривалість: перетинається з іншим записом або перервою');
+              setResizeItem(null);
+              return;
+            }
+          }
+
+          if (resizeItem.type === 'appointment') {
+            onUpdateAppointment(resizeItem.id, { duration_minutes: newDuration });
+          } else {
+            onUpdateBreak(resizeItem.id, { duration_minutes: newDuration });
+          }
+        } else {
+          // Top handle: adjust start time (end time fixed, start time changes)
+          const scheduleEl = document.getElementById('schedule-container');
+          if (scheduleEl && resizeItem.originalStartTime) {
+            const rect = scheduleEl.getBoundingClientRect();
+            const newStartTime = yToTime(clientY, rect.top, scheduleEl.scrollTop);
+            
+            // Calculate new duration based on fixed end time
+            const currentItem = resizeItem.type === 'appointment'
+              ? appointments.find(a => a.id === resizeItem.id)
+              : breaks.find(b => b.id === resizeItem.id);
+            
+            if (currentItem) {
+              const endTime = parseISO(currentItem.end_time);
+              let newDuration = Math.round((endTime.getTime() - newStartTime.getTime()) / 60000);
+              newDuration = Math.max(5, Math.round(newDuration / 5) * 5); // Snap to 5-min intervals and minimum 5 minutes
+              
+              // Ensure start time is not before 7:00
+              const minTime = new Date(newStartTime);
+              minTime.setHours(7, 0, 0, 0);
+              if (newStartTime < minTime) {
+                alert('Неможливо змінити час початку: виходить за межі робочого часу (7:00)');
+                setResizeItem(null);
+                return;
+              }
+              
+              // Check for overlaps with new start time
+              if (hasOverlap(resizeItem.id, newStartTime, newDuration)) {
+                alert('Неможливо змінити час початку: перетинається з іншим записом або перервою');
+                setResizeItem(null);
+                return;
+              }
+              
+              // Update both start time and duration
+              if (resizeItem.type === 'appointment') {
+                onUpdateAppointment(resizeItem.id, { 
+                  start_time: newStartTime.toISOString(),
+                  duration_minutes: newDuration 
+                });
+              } else {
+                onUpdateBreak(resizeItem.id, { 
+                  start_time: newStartTime.toISOString(),
+                  duration_minutes: newDuration 
+                });
+              }
+            }
+          }
+        }
+        setResizeItem(null);
+      }
+    };
+
+    if (dragItem || resizeItem) {
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('touchmove', handleMove, { passive: false });
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchend', handleEnd);
+
+      return () => {
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('touchmove', handleMove);
+        window.removeEventListener('mouseup', handleEnd);
+        window.removeEventListener('touchend', handleEnd);
+      };
+    }
+  }, [dragItem, resizeItem, pixelsPerHour, onUpdateAppointment, onUpdateBreak]);
+
+  /**
+   * Render time labels (hourly and 15-minute intervals)
+   */
+  const renderTimeLabels = () => {
+    const labels = [];
+    for (let hour = startHour; hour <= endHour; hour++) {
+      // Hour labels (larger, bold)
+      const time = setMinutes(setHours(new Date(), hour), 0);
+      labels.push(
+        <div
+          key={`hour-${hour}`}
+          className="absolute left-0 pl-2 text-base sm:text-lg text-gray-700 font-semibold"
+          style={{ top: `${(hour - startHour) * pixelsPerHour - 8}px` }}
+        >
+          {format(time, 'HH:mm', { locale: uk })}
+        </div>
+      );
+      
+      // 15-minute interval labels (smaller, lighter)
+      if (hour < endHour) {
+        for (let quarter = 1; quarter < 4; quarter++) {
+          const minutes = quarter * 15;
+          const quarterTime = setMinutes(setHours(new Date(), hour), minutes);
+          labels.push(
+            <div
+              key={`quarter-${hour}-${minutes}`}
+              className="absolute left-0 pl-2 text-sm text-gray-500 font-medium"
+              style={{ top: `${(hour - startHour) * pixelsPerHour + (minutes / 60) * pixelsPerHour - 6}px` }}
+            >
+              {format(quarterTime, 'HH:mm', { locale: uk })}
+            </div>
+          );
+        }
+      }
+    }
+    return labels;
+  };
+
+  /**
+   * Render hour grid lines with 15-minute and 5-minute subdivisions
+   */
+  const renderGridLines = () => {
+    const lines = [];
+    
+    for (let hour = startHour; hour <= endHour; hour++) {
+      // Hour line (thicker, darker)
+      lines.push(
+        <div
+          key={`hour-${hour}`}
+          className="absolute right-0 border-t-2 border-gray-400"
+          style={{ 
+            top: `${(hour - startHour) * pixelsPerHour}px`,
+            left: '-12px'
+          }}
+        />
+      );
+      
+      // Don't add subdivisions after the last hour
+      if (hour < endHour) {
+        // 15-minute subdivisions (visible, medium thickness)
+        for (let quarter = 1; quarter < 4; quarter++) {
+          const minutes = quarter * 15;
+          lines.push(
+            <div
+              key={`15min-${hour}-${minutes}`}
+              className="absolute right-0 border-t"
+              style={{ 
+                top: `${(hour - startHour) * pixelsPerHour + (minutes / 60) * pixelsPerHour}px`,
+                left: '-12px',
+                borderColor: '#9ca3af',
+                borderWidth: '1.5px'
+              }}
+            />
+          );
+        }
+        
+        // 5-minute subdivisions (subtle but visible)
+        for (let i = 1; i < 12; i++) {
+          // Skip the 15-minute marks (already rendered above)
+          if (i % 3 === 0) continue;
+          
+          const minutes = i * 5;
+          lines.push(
+            <div
+              key={`5min-${hour}-${minutes}`}
+              className="absolute right-0 border-t"
+              style={{ 
+                top: `${(hour - startHour) * pixelsPerHour + (minutes / 60) * pixelsPerHour}px`,
+                left: '-12px',
+                borderColor: '#d1d5db'
+              }}
+            />
+          );
+        }
+      }
+    }
+    return lines;
+  };
+
+  /**
+   * Get formatted date header with Ukrainian text
+   */
+  const getDateHeader = (): string => {
+    const today = new Date();
+    const dayOfWeek = format(today, 'EEEE', { locale: uk });
+    const dateFormatted = format(today, 'dd/MM/yyyy');
+    
+    // Calculate days difference for relative date
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const afterTomorrow = new Date(today);
+    afterTomorrow.setDate(afterTomorrow.getDate() + 2);
+    
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const currentDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    let relativeDate = '';
+    if (currentDate.getTime() === todayStart.getTime()) {
+      relativeDate = 'сьогодні';
+    } else if (currentDate.getTime() === new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate()).getTime()) {
+      relativeDate = 'завтра';
+    } else if (currentDate.getTime() === new Date(afterTomorrow.getFullYear(), afterTomorrow.getMonth(), afterTomorrow.getDate()).getTime()) {
+      relativeDate = 'післязавтра';
+    }
+    
+    // Capitalize first letter of day of week
+    const capitalizedDayOfWeek = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
+    
+    return `${dateFormatted}, ${capitalizedDayOfWeek}${relativeDate ? ` (${relativeDate})` : ''}`;
+  };
+
+  return (
+    <div className="flex gap-6">
+      {/* Mini-map */}
+      <div className="hidden lg:block w-56 flex-shrink-0">
+        <ScheduleMiniMap
+          appointments={appointments}
+          breaks={breaks}
+          startHour={startHour}
+          endHour={endHour}
+          scheduleContainerId="schedule-container"
+        />
+      </div>
+
+      {/* Main schedule */}
+      <div className="flex-1 bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="px-3 py-2 sm:px-4 sm:py-2 bg-gray-100 border-b border-gray-200">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
+            {getDateHeader()}
+          </h2>
+        </div>
+
+        <div
+          id="schedule-container"
+          className="relative overflow-y-auto"
+          style={{
+            height: 'calc(100vh - 240px)',
+            minHeight: '600px',
+          }}
+        >
+        {/* Time labels */}
+        <div className="absolute left-0 top-0 w-12 sm:w-16 z-10 bg-white">
+          {renderTimeLabels()}
+        </div>
+
+        {/* Schedule timeline */}
+        <div
+          className="relative ml-12 sm:ml-16"
+          style={{ height: `${scheduleHeight}px` }}
+        >
+          {/* Grid lines */}
+          {renderGridLines()}
+
+          {/* Appointments */}
+          {appointments.map((appointment) => (
+            <div
+              key={appointment.id}
+              className="absolute w-full"
+              style={{ top: `${getItemPosition(appointment)}px` }}
+            >
+              <AppointmentBlock
+                appointment={appointment}
+                onEdit={onEditAppointment}
+                onDelete={onDeleteAppointment}
+                onDragStart={(id, startTime, clientY) =>
+                  handleDragStart(id, 'appointment', startTime, clientY)
+                }
+                onResizeStart={(id, duration, clientY, handle, startTime) =>
+                  handleResizeStart(id, 'appointment', duration, clientY, handle, startTime)
+                }
+                onUpdateDuration={handleUpdateDuration}
+                canAdjustDuration={canAdjustDuration}
+                pixelsPerHour={pixelsPerHour}
+                scrollContainerId="schedule-container"
+              />
+            </div>
+          ))}
+
+          {/* Breaks */}
+          {breaks.map((breakItem) => (
+            <div
+              key={breakItem.id}
+              className="absolute w-full"
+              style={{ top: `${getItemPosition(breakItem)}px` }}
+            >
+              <BreakBlock
+                breakItem={breakItem}
+                onDelete={onDeleteBreak}
+                onDragStart={(id, startTime, clientY) =>
+                  handleDragStart(id, 'break', startTime, clientY)
+                }
+                onResizeStart={(id, duration, clientY, handle, startTime) =>
+                  handleResizeStart(id, 'break', duration, clientY, handle, startTime)
+                }
+                onUpdateDuration={handleUpdateBreakDuration}
+                canAdjustDuration={canAdjustDuration}
+                pixelsPerHour={pixelsPerHour}
+                scrollContainerId="schedule-container"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+        <div className="px-3 py-2 sm:px-4 sm:py-2 bg-gray-100 border-t border-gray-200">
+          <p className="text-sm sm:text-base text-gray-600 text-center">
+
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
