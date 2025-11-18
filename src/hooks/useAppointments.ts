@@ -201,7 +201,6 @@ export const useAppointments = () => {
               start_time: breakStart,
               duration_minutes: 15,
               end_time: breakEnd,
-              type: 'break',
             });
             newBreaks.push(newBreak);
           }

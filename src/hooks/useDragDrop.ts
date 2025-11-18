@@ -67,14 +67,12 @@ export const useDragDrop = (
    * Handle drag move
    */
   const handleDragMove = useCallback(
-    (clientY: number) => {
+    (_clientY: number) => {
       if (!dragState.isDragging || !dragState.itemId) return;
 
-      // Calculate new time based on Y position
-      const newTime = yToTime(clientY);
       // Update is handled by parent component through visual feedback
     },
-    [dragState, yToTime]
+    [dragState]
   );
 
   /**
