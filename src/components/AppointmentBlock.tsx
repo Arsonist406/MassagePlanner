@@ -204,17 +204,22 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
         {/* Content */}
         <div className="flex items-center gap-2 w-full justify-between">
           <div className="flex flex-col gap-1 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
               <div className="font-medium text-lg sm:text-xl">
-                {appointment.client_name} {format(parseISO(appointment.start_time), 'HH:mm', { locale: uk })} -{' '}
-                {format(parseISO(appointment.end_time), 'HH:mm', { locale: uk })}
+                {appointment.client_name}
               </div>
-              <div className="text-lg opacity-75 whitespace-nowrap">
-                ({appointment.duration_minutes} хв)
+              <div className="flex items-center gap-2">
+                <div className="text-base sm:text-lg">
+                  {format(parseISO(appointment.start_time), 'HH:mm', { locale: uk })} -{' '}
+                  {format(parseISO(appointment.end_time), 'HH:mm', { locale: uk })}
+                </div>
+                <div className="text-base sm:text-lg opacity-75 whitespace-nowrap">
+                  ({appointment.duration_minutes} хв)
+                </div>
               </div>
             </div>
             {appointment.notes && (
-              <div className="text-base opacity-90 line-clamp-4">
+              <div className="text-base opacity-90 line-clamp-8">
                 {appointment.notes}
               </div>
             )}
@@ -241,10 +246,10 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
               }
               setIsMenuOpen(!isMenuOpen);
             }}
-            className="bg-white/20 hover:bg-white/30 p-1.5 rounded flex-shrink-0"
+            className="bg-white/20 hover:bg-white/30 p-2.5 rounded flex-shrink-0"
             title="Налаштування"
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 16 16">
               <circle cx="2" cy="8" r="1.5"/>
               <circle cx="8" cy="8" r="1.5"/>
               <circle cx="14" cy="8" r="1.5"/>

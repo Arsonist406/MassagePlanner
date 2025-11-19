@@ -33,13 +33,46 @@ function App() {
   const handleFormSubmit = async (data: { appointment: any; addBreak: boolean; breakDuration: number }) => {
     try {
       if (editingAppointment) {
-        await updateAppointment(editingAppointment.id, {
+        const updatedAppointment = await updateAppointment(editingAppointment.id, {
           client_name: data.appointment.client_name,
           start_time: data.appointment.start_time,
           duration_minutes: data.appointment.duration_minutes,
           notes: data.appointment.notes,
           end_time: '', // Will be recalculated
         });
+        
+        // If user wants to add a break after the appointment
+        if (data.addBreak) {
+          const breakStartTime = calculateEndTime(data.appointment.start_time, data.appointment.duration_minutes);
+          
+          // Handle "until next appointment" option
+          let breakDurationMinutes = data.breakDuration;
+          
+          if (data.breakDuration === -1) {
+            // Find the next appointment after the updated one
+            const nextAppointment = appointments
+              .filter(apt => apt.id !== editingAppointment.id && apt.start_time > updatedAppointment.end_time)
+              .sort((a, b) => a.start_time.localeCompare(b.start_time))[0];
+            
+            if (nextAppointment) {
+              // Calculate duration until next appointment
+              const breakStart = new Date(breakStartTime);
+              const nextStart = new Date(nextAppointment.start_time);
+              breakDurationMinutes = Math.floor((nextStart.getTime() - breakStart.getTime()) / (1000 * 60));
+            } else {
+              // If no next appointment, default to 15 minutes
+              breakDurationMinutes = 15;
+            }
+          }
+          
+          // Create the break
+          await createBreak({
+            start_time: breakStartTime,
+            duration_minutes: breakDurationMinutes,
+            end_time: '', // Will be calculated
+          });
+        }
+        
         setEditingAppointment(null);
       } else {
         // Create the appointment

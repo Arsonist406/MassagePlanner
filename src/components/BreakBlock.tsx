@@ -191,13 +191,18 @@ export const BreakBlock: React.FC<BreakBlockProps> = ({
 
         {/* Content */}
         <div className="flex items-center gap-2 w-full justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
             <div className="font-medium text-lg sm:text-xl">
-              Перерва {format(parseISO(breakItem.start_time), 'HH:mm', { locale: uk })} -{' '}
-              {format(parseISO(breakItem.end_time), 'HH:mm', { locale: uk })}
+              Перерва
             </div>
-            <div className="text-lg opacity-75 whitespace-nowrap">
-              ({breakItem.duration_minutes} хв)
+            <div className="flex items-center gap-2">
+              <div className="text-base sm:text-lg">
+                {format(parseISO(breakItem.start_time), 'HH:mm', { locale: uk })} -{' '}
+                {format(parseISO(breakItem.end_time), 'HH:mm', { locale: uk })}
+              </div>
+              <div className="text-base sm:text-lg opacity-75 whitespace-nowrap">
+                ({breakItem.duration_minutes} хв)
+              </div>
             </div>
           </div>
           
@@ -222,10 +227,10 @@ export const BreakBlock: React.FC<BreakBlockProps> = ({
               }
               setIsMenuOpen(!isMenuOpen);
             }}
-            className="bg-amber-200 hover:bg-amber-300 p-1.5 rounded flex-shrink-0"
+            className="bg-amber-200 hover:bg-amber-300 p-2.5 rounded flex-shrink-0"
             title="Налаштування"
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 16 16">
               <circle cx="2" cy="8" r="1.5"/>
               <circle cx="8" cy="8" r="1.5"/>
               <circle cx="14" cy="8" r="1.5"/>

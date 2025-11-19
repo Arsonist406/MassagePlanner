@@ -46,6 +46,34 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   const scheduleHeight = totalHours * pixelsPerHour;
 
   /**
+   * Auto-scroll to current time on mount
+   */
+  useEffect(() => {
+    const scheduleEl = document.getElementById('schedule-container');
+    if (scheduleEl) {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      // Only scroll if current time is within schedule hours
+      if (currentHour >= startHour && currentHour < endHour) {
+        const hoursFromStart = currentHour - startHour + currentMinute / 60;
+        const scrollPosition = hoursFromStart * pixelsPerHour;
+        
+        // Scroll to position with some offset to center the current time
+        const offset = scheduleEl.clientHeight / 2;
+        scheduleEl.scrollTop = Math.max(0, scrollPosition - offset);
+      } else if (currentHour < startHour) {
+        // If before schedule start, scroll to top
+        scheduleEl.scrollTop = 0;
+      } else {
+        // If after schedule end, scroll to bottom
+        scheduleEl.scrollTop = scheduleEl.scrollHeight;
+      }
+    }
+  }, []); // Run only on mount
+
+  /**
    * Calculate position for a schedule item
    */
   const getItemPosition = (item: ScheduleItem): number => {
