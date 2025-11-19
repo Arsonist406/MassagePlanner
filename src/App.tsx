@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAppointments } from './hooks/useAppointments';
 import { AppointmentForm } from './components/AppointmentForm';
 import { ScheduleView } from './components/ScheduleView';
 import { ScheduleMiniMapHorizontal } from './components/ScheduleMiniMapHorizontal';
 import { calculateEndTime } from './services/appointmentService';
+import { startOfDay, isSameDay, parseISO } from 'date-fns';
 import type { Appointment } from './types';
 
 /**
@@ -24,8 +25,26 @@ function App() {
     deleteBreak,
   } = useAppointments();
 
+  // Selected date state (defaults to today)
+  const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
+
   const [showForm, setShowForm] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+
+  // Filter appointments and breaks by selected date
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter(apt => {
+      const aptDate = parseISO(apt.start_time);
+      return isSameDay(aptDate, selectedDate);
+    });
+  }, [appointments, selectedDate]);
+
+  const filteredBreaks = useMemo(() => {
+    return breaks.filter(brk => {
+      const brkDate = parseISO(brk.start_time);
+      return isSameDay(brkDate, selectedDate);
+    });
+  }, [breaks, selectedDate]);
 
   /**
    * Handle form submission for creating/editing appointments
@@ -180,7 +199,7 @@ function App() {
               <AppointmentForm
                 onSubmit={handleFormSubmit}
                 onCancel={handleCancelForm}
-                currentDate={new Date()}
+                currentDate={selectedDate}
                 initialData={
                   editingAppointment
                     ? {
@@ -198,8 +217,10 @@ function App() {
           {/* Schedule Section */}
           <div className={showForm ? 'lg:col-span-2' : 'lg:col-span-3'}>
             <ScheduleView
-              appointments={appointments}
-              breaks={breaks}
+              appointments={filteredAppointments}
+              breaks={filteredBreaks}
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
               onUpdateAppointment={updateAppointment}
               onUpdateBreak={updateBreak}
               onDeleteAppointment={deleteAppointment}
@@ -211,8 +232,8 @@ function App() {
             <div className="mt-4 space-y-4 lg:hidden">
               {/* Horizontal Minimap */}
               <ScheduleMiniMapHorizontal
-                appointments={appointments}
-                breaks={breaks}
+                appointments={filteredAppointments}
+                breaks={filteredBreaks}
                 startHour={7}
                 endHour={23}
                 scheduleContainerId="schedule-container"
@@ -224,16 +245,16 @@ function App() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Записи:</span>
-                    <span className="text-xl font-bold text-primary-600">{appointments.length}</span>
+                    <span className="text-xl font-bold text-primary-600">{filteredAppointments.length}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Перерви:</span>
-                    <span className="text-xl font-bold text-amber-600">{breaks.length}</span>
+                    <span className="text-xl font-bold text-amber-600">{filteredBreaks.length}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                     <span className="text-sm text-gray-600">Загальна тривалість:</span>
                     <span className="text-xl font-bold text-green-600">
-                      {appointments.reduce((sum, apt) => sum + apt.duration_minutes, 0)} хв
+                      {filteredAppointments.reduce((sum, apt) => sum + apt.duration_minutes, 0)} хв
                     </span>
                   </div>
                 </div>

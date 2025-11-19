@@ -3,12 +3,14 @@ import type { Appointment, Break, ScheduleItem } from '../types';
 import { AppointmentBlock } from './AppointmentBlock';
 import { BreakBlock } from './BreakBlock';
 import { ScheduleMiniMap } from './ScheduleMiniMap';
-import { parseISO, format, setHours, setMinutes } from 'date-fns';
+import { parseISO, format, setHours, setMinutes, addDays, subDays, startOfDay, isSameDay, isToday, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, addMonths, subMonths } from 'date-fns';
 import { uk } from 'date-fns/locale';
 
 interface ScheduleViewProps {
   appointments: Appointment[];
   breaks: Break[];
+  selectedDate: Date;
+  onDateChange: (date: Date) => void;
   onUpdateAppointment: (id: string, updates: Partial<Appointment>) => void;
   onUpdateBreak: (id: string, updates: Partial<Break>) => void;
   onDeleteAppointment: (id: string) => void;
@@ -26,6 +28,8 @@ interface ScheduleViewProps {
 export const ScheduleView: React.FC<ScheduleViewProps> = ({
   appointments,
   breaks,
+  selectedDate,
+  onDateChange,
   onUpdateAppointment,
   onUpdateBreak,
   onDeleteAppointment,
@@ -42,6 +46,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     startTime: string;
     hasMoved: boolean;
   } | null>(null);
+
+  const [showCalendar, setShowCalendar] = useState(false);
 
   const totalHours = endHour - startHour;
   const scheduleHeight = totalHours * pixelsPerHour;
@@ -442,25 +448,26 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
    * Get formatted date header with Ukrainian text
    */
   const getDateHeader = (): string => {
-    const today = new Date();
-    const dayOfWeek = format(today, 'EEEE', { locale: uk });
-    const dateFormatted = format(today, 'dd/MM/yyyy');
+    const dayOfWeek = format(selectedDate, 'EEEE', { locale: uk });
+    const dateFormatted = format(selectedDate, 'dd/MM/yyyy');
     
-    // Calculate days difference for relative date
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const afterTomorrow = new Date(today);
-    afterTomorrow.setDate(afterTomorrow.getDate() + 2);
-    
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const currentDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    // Calculate relative date
+    const today = startOfDay(new Date());
+    const yesterday = subDays(today, 1);
+    const dayBeforeYesterday = subDays(today, 2);
+    const tomorrow = addDays(today, 1);
+    const afterTomorrow = addDays(today, 2);
     
     let relativeDate = '';
-    if (currentDate.getTime() === todayStart.getTime()) {
+    if (isSameDay(selectedDate, today)) {
       relativeDate = 'сьогодні';
-    } else if (currentDate.getTime() === new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate()).getTime()) {
+    } else if (isSameDay(selectedDate, yesterday)) {
+      relativeDate = 'вчора';
+    } else if (isSameDay(selectedDate, dayBeforeYesterday)) {
+      relativeDate = 'позавчора';
+    } else if (isSameDay(selectedDate, tomorrow)) {
       relativeDate = 'завтра';
-    } else if (currentDate.getTime() === new Date(afterTomorrow.getFullYear(), afterTomorrow.getMonth(), afterTomorrow.getDate()).getTime()) {
+    } else if (isSameDay(selectedDate, afterTomorrow)) {
       relativeDate = 'післязавтра';
     }
     
@@ -469,6 +476,53 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     
     return `${dateFormatted}, ${capitalizedDayOfWeek}${relativeDate ? ` (${relativeDate})` : ''}`;
   };
+
+  /**
+   * Handle date navigation
+   */
+  const goToPreviousDay = () => {
+    onDateChange(subDays(selectedDate, 1));
+  };
+
+  const goToNextDay = () => {
+    onDateChange(addDays(selectedDate, 1));
+  };
+
+  const goToToday = () => {
+    onDateChange(startOfDay(new Date()));
+  };
+
+  const [calendarMonth, setCalendarMonth] = useState(selectedDate);
+
+  const toggleCalendar = () => {
+    setShowCalendar(!showCalendar);
+    setCalendarMonth(selectedDate);
+  };
+
+  const handleCalendarDateSelect = (date: Date) => {
+    onDateChange(startOfDay(date));
+    setShowCalendar(false);
+  };
+
+  const getCalendarDays = () => {
+    const monthStart = startOfMonth(calendarMonth);
+    const monthEnd = endOfMonth(calendarMonth);
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 1 }); // Start from Monday
+    const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    return eachDayOfInterval({ start: startDate, end: endDate });
+  };
+
+  // Close calendar when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showCalendar && !target.closest('.calendar-container')) {
+        setShowCalendar(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCalendar]);
 
   return (
     <div className="flex gap-6">
@@ -485,10 +539,117 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
 
       {/* Main schedule */}
       <div className="flex-1 bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="px-3 py-2 sm:px-4 sm:py-2 bg-gray-100 border-b border-gray-200">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
-            {getDateHeader()}
-          </h2>
+        <div className="px-3 py-3 sm:px-4 sm:py-3 bg-gray-100 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
+              {getDateHeader()}
+            </h2>
+            <div className="flex items-center gap-2 relative">
+              {/* Navigation buttons */}
+              <button
+                onClick={goToPreviousDay}
+                className="p-2 hover:bg-gray-200 rounded transition-colors"
+                title="Попередній день"
+              >
+                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              
+              {/* Date picker */}
+              <button
+                onClick={toggleCalendar}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                title="Відкрити календар"
+              >
+                <span>{format(selectedDate, 'dd/MM/yyyy')}</span>
+                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
+
+              {/* Calendar dropdown */}
+              {showCalendar && (
+                <div className="absolute top-full left-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg p-4 z-50 calendar-container" style={{ width: '280px' }}>
+                  {/* Calendar header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <button
+                      onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))}
+                      className="p-1 hover:bg-gray-100 rounded"
+                    >
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <div className="font-semibold text-gray-800">
+                      {format(calendarMonth, 'LLLL yyyy', { locale: uk })}
+                    </div>
+                    <button
+                      onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}
+                      className="p-1 hover:bg-gray-100 rounded"
+                    >
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Day names */}
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].map((day) => (
+                      <div key={day} className="text-center text-xs font-medium text-gray-600 py-1">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Calendar days */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {getCalendarDays().map((day, index) => {
+                      const isCurrentMonth = isSameMonth(day, calendarMonth);
+                      const isSelected = isSameDay(day, selectedDate);
+                      const isTodayDate = isToday(day);
+
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => handleCalendarDateSelect(day)}
+                          className={`
+                            p-2 text-sm rounded transition-colors
+                            ${!isCurrentMonth ? 'text-gray-300' : 'text-gray-700'}
+                            ${isSelected ? 'bg-primary-600 text-white font-semibold hover:bg-primary-700' : 'hover:bg-gray-100'}
+                            ${isTodayDate && !isSelected ? 'border border-primary-400' : ''}
+                          `}
+                        >
+                          {format(day, 'd')}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              <button
+                onClick={goToNextDay}
+                className="p-2 hover:bg-gray-200 rounded transition-colors"
+                title="Наступний день"
+              >
+                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              
+              {/* Today button */}
+              {!isToday(selectedDate) && (
+                <button
+                  onClick={goToToday}
+                  className="ml-2 px-3 py-2 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 transition-colors"
+                >
+                  Сьогодні
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         <div
