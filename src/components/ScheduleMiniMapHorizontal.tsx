@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Appointment, Break, ScheduleItem } from '../types';
 import { parseISO, format } from 'date-fns';
 
@@ -21,6 +21,10 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
   endHour = 23,
   scheduleContainerId,
 }) => {
+  const miniMapRef = useRef<HTMLDivElement>(null);
+  const [viewportLeft, setViewportLeft] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(100);
+
   const totalHours = endHour - startHour;
   const miniMapWidth = 100; // Percentage width
   const pixelsPerHourPercent = miniMapWidth / totalHours;
@@ -36,6 +40,24 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
     const left = hoursFromStart * pixelsPerHourPercent;
     const width = (item.duration_minutes / 60) * pixelsPerHourPercent;
     return { left, width: Math.max(width, 0.5) }; // Minimum 0.5% width for visibility
+  };
+
+  /**
+   * Update viewport indicator position based on scroll
+   */
+  const updateViewport = () => {
+    const scheduleContainer = document.getElementById(scheduleContainerId);
+    if (!scheduleContainer) return;
+
+    const scrollTop = scheduleContainer.scrollTop;
+    const clientHeight = scheduleContainer.clientHeight;
+    const scrollHeight = scheduleContainer.scrollHeight;
+
+    const viewportLeftPercent = (scrollTop / scrollHeight) * 100;
+    const viewportWidthPercent = (clientHeight / scrollHeight) * 100;
+
+    setViewportLeft(viewportLeftPercent);
+    setViewportWidth(viewportWidthPercent);
   };
 
   /**
@@ -55,6 +77,24 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
       behavior: 'smooth'
     });
   };
+
+  /**
+   * Listen to scroll events
+   */
+  useEffect(() => {
+    const scheduleContainer = document.getElementById(scheduleContainerId);
+    if (!scheduleContainer) return;
+
+    updateViewport();
+    scheduleContainer.addEventListener('scroll', updateViewport);
+    window.addEventListener('resize', updateViewport);
+
+    return () => {
+      scheduleContainer.removeEventListener('scroll', updateViewport);
+      window.removeEventListener('resize', updateViewport);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleContainerId]);
 
   /**
    * Render hour markers
@@ -88,6 +128,7 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
       
       {/* Mini-map container */}
       <div
+        ref={miniMapRef}
         className="relative bg-gray-50 rounded border border-gray-300 cursor-pointer hover:border-gray-400 transition-colors"
         style={{ height: '100px', width: '100%' }}
         onClick={handleMiniMapClick}
@@ -132,6 +173,15 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
               </div>
             );
           })}
+
+          {/* Viewport indicator */}
+          <div
+            className="absolute top-0 bottom-0 bg-blue-500/20 border-2 border-blue-500 rounded pointer-events-none"
+            style={{
+              left: `${viewportLeft}%`,
+              width: `${viewportWidth}%`,
+            }}
+          />
         </div>
       </div>
 
