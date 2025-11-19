@@ -9,7 +9,6 @@ interface AppointmentBlockProps {
   onEdit: (appointment: Appointment) => void;
   onDelete: (id: string) => void;
   onDragStart: (id: string, startTime: string, clientY: number) => void;
-  onResizeStart: (id: string, duration: number, clientY: number, handle: 'top' | 'bottom', startTime: string) => void;
   onUpdateDuration: (id: string, newDuration: number) => void;
   canAdjustDuration: (id: string, currentDuration: number, adjustment: number) => boolean;
   pixelsPerHour?: number;
@@ -25,7 +24,6 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
   onEdit,
   onDelete,
   onDragStart,
-  onResizeStart,
   onUpdateDuration,
   canAdjustDuration,
   pixelsPerHour = 80,
@@ -101,28 +99,15 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.classList.contains('resize-handle')) return;
     if (target.tagName === 'BUTTON' || target.closest('button')) return;
     onDragStart(appointment.id, appointment.start_time, e.clientY);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
-    if (target.classList.contains('resize-handle')) return;
     if (target.tagName === 'BUTTON' || target.closest('button')) return;
     const touch = e.touches[0];
     onDragStart(appointment.id, appointment.start_time, touch.clientY);
-  };
-
-  const handleResizeMouseDown = (e: React.MouseEvent, handle: 'top' | 'bottom') => {
-    e.stopPropagation();
-    onResizeStart(appointment.id, appointment.duration_minutes, e.clientY, handle, appointment.start_time);
-  };
-
-  const handleResizeTouchStart = (e: React.TouchEvent, handle: 'top' | 'bottom') => {
-    e.stopPropagation();
-    const touch = e.touches[0];
-    onResizeStart(appointment.id, appointment.duration_minutes, touch.clientY, handle, appointment.start_time);
   };
 
   return (
@@ -136,13 +121,6 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
     >
-      {/* Top resize handle */}
-      <div
-        className="resize-handle absolute top-0 left-0 right-0 h-3 bg-primary-700/55 hover:bg-primary-700 cursor-ns-resize rounded-t-md pointer-events-auto z-20"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'top')}
-        onTouchStart={(e) => handleResizeTouchStart(e, 'top')}
-        title="Тягніть, щоб змінити час початку"
-      />
       <div className="p-2 h-full relative flex items-center">
 
         {/* Dropdown menu */}
@@ -212,9 +190,7 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm('Видалити цей запис?')) {
-                    onDelete(appointment.id);
-                  }
+                  onDelete(appointment.id);
                   setIsMenuOpen(false);
                 }}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 transition-colors"
@@ -227,14 +203,21 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
 
         {/* Content */}
         <div className="flex items-center gap-2 w-full justify-between">
-          <div className="flex items-center gap-2">
-            <div className="font-medium text-sm sm:text-base">
-              {appointment.client_name} {format(parseISO(appointment.start_time), 'HH:mm', { locale: uk })} -{' '}
-              {format(parseISO(appointment.end_time), 'HH:mm', { locale: uk })}
+          <div className="flex flex-col gap-1 flex-1">
+            <div className="flex items-center gap-2">
+              <div className="font-medium text-lg sm:text-xl">
+                {appointment.client_name} {format(parseISO(appointment.start_time), 'HH:mm', { locale: uk })} -{' '}
+                {format(parseISO(appointment.end_time), 'HH:mm', { locale: uk })}
+              </div>
+              <div className="text-lg opacity-75 whitespace-nowrap">
+                ({appointment.duration_minutes} хв)
+              </div>
             </div>
-            <div className="text-sm opacity-75 whitespace-nowrap">
-              ({appointment.duration_minutes} хв)
-            </div>
+            {appointment.notes && (
+              <div className="text-base opacity-90 line-clamp-4">
+                {appointment.notes}
+              </div>
+            )}
           </div>
           
           {/* Settings button */}
@@ -269,14 +252,6 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Resize handle */}
-      <div
-        className="resize-handle absolute bottom-0 left-0 right-0 h-3 bg-primary-700/55 hover:bg-primary-700 cursor-ns-resize"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'bottom')}
-        onTouchStart={(e) => handleResizeTouchStart(e, 'bottom')}
-        title="Тягніть, щоб змінити час завершення"
-      />
     </div>
   );
 };

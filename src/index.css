@@ -56,11 +56,6 @@ body {
   cursor: move;
 }
 
-.resize-handle {
-  touch-action: none;
-  cursor: ns-resize;
-}
-
 /* Smooth transitions for dragging */
 .dragging {
   opacity: 0.8;

@@ -42,15 +42,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     startTime: string;
   } | null>(null);
 
-  const [resizeItem, setResizeItem] = useState<{
-    id: string;
-    type: 'appointment' | 'break';
-    startY: number;
-    startDuration: number;
-    handle: 'top' | 'bottom';
-    originalStartTime?: string;
-  } | null>(null);
-
   const totalHours = endHour - startHour;
   const scheduleHeight = totalHours * pixelsPerHour;
 
@@ -173,20 +164,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   /**
-   * Handle resize start
-   */
-  const handleResizeStart = (
-    id: string,
-    type: 'appointment' | 'break',
-    currentDuration: number,
-    clientY: number,
-    handle: 'top' | 'bottom',
-    originalStartTime: string
-  ) => {
-    setResizeItem({ id, type, startY: clientY, startDuration: currentDuration, handle, originalStartTime });
-  };
-
-  /**
    * Handle duration update with 23:00 constraint and overlap check
    */
   const handleUpdateDuration = (id: string, newDuration: number) => {
@@ -259,11 +236,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
           e.preventDefault();
         }
       }
-      if (resizeItem) {
-        if (e instanceof TouchEvent) {
-          e.preventDefault();
-        }
-      }
     };
 
     const handleEnd = (e: MouseEvent | TouchEvent) => {
@@ -299,100 +271,9 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         }
         setDragItem(null);
       }
-
-      if (resizeItem && clientY) {
-        if (resizeItem.handle === 'bottom') {
-          // Bottom handle: adjust duration (end time changes, start time fixed)
-          const deltaY = clientY - resizeItem.startY;
-          const deltaMinutes = Math.round((deltaY / pixelsPerHour) * 60);
-          let newDuration = Math.max(
-            5,
-            Math.round((resizeItem.startDuration + deltaMinutes) / 5) * 5
-          );
-
-          // Get the current item to check end time constraint
-          const currentItem = resizeItem.type === 'appointment'
-            ? appointments.find(a => a.id === resizeItem.id)
-            : breaks.find(b => b.id === resizeItem.id);
-          
-          if (currentItem) {
-            const startTime = parseISO(currentItem.start_time);
-            const endTime = new Date(startTime.getTime() + newDuration * 60000);
-            const maxTime = new Date(startTime);
-            maxTime.setHours(23, 0, 0, 0);
-            
-            // If end time exceeds 23:00, cap the duration
-            if (endTime > maxTime) {
-              const maxDuration = Math.floor((maxTime.getTime() - startTime.getTime()) / 60000);
-              newDuration = Math.max(5, Math.floor(maxDuration / 5) * 5); // Snap to 5-min intervals
-            }
-            
-            // Check for overlaps
-            if (hasOverlap(resizeItem.id, startTime, newDuration)) {
-              alert('Неможливо змінити тривалість: перетинається з іншим записом або перервою');
-              setResizeItem(null);
-              return;
-            }
-          }
-
-          if (resizeItem.type === 'appointment') {
-            onUpdateAppointment(resizeItem.id, { duration_minutes: newDuration });
-          } else {
-            onUpdateBreak(resizeItem.id, { duration_minutes: newDuration });
-          }
-        } else {
-          // Top handle: adjust start time (end time fixed, start time changes)
-          const scheduleEl = document.getElementById('schedule-container');
-          if (scheduleEl && resizeItem.originalStartTime) {
-            const rect = scheduleEl.getBoundingClientRect();
-            const newStartTime = yToTime(clientY, rect.top, scheduleEl.scrollTop);
-            
-            // Calculate new duration based on fixed end time
-            const currentItem = resizeItem.type === 'appointment'
-              ? appointments.find(a => a.id === resizeItem.id)
-              : breaks.find(b => b.id === resizeItem.id);
-            
-            if (currentItem) {
-              const endTime = parseISO(currentItem.end_time);
-              let newDuration = Math.round((endTime.getTime() - newStartTime.getTime()) / 60000);
-              newDuration = Math.max(5, Math.round(newDuration / 5) * 5); // Snap to 5-min intervals and minimum 5 minutes
-              
-              // Ensure start time is not before 7:00
-              const minTime = new Date(newStartTime);
-              minTime.setHours(7, 0, 0, 0);
-              if (newStartTime < minTime) {
-                alert('Неможливо змінити час початку: виходить за межі робочого часу (7:00)');
-                setResizeItem(null);
-                return;
-              }
-              
-              // Check for overlaps with new start time
-              if (hasOverlap(resizeItem.id, newStartTime, newDuration)) {
-                alert('Неможливо змінити час початку: перетинається з іншим записом або перервою');
-                setResizeItem(null);
-                return;
-              }
-              
-              // Update both start time and duration
-              if (resizeItem.type === 'appointment') {
-                onUpdateAppointment(resizeItem.id, { 
-                  start_time: newStartTime.toISOString(),
-                  duration_minutes: newDuration 
-                });
-              } else {
-                onUpdateBreak(resizeItem.id, { 
-                  start_time: newStartTime.toISOString(),
-                  duration_minutes: newDuration 
-                });
-              }
-            }
-          }
-        }
-        setResizeItem(null);
-      }
     };
 
-    if (dragItem || resizeItem) {
+    if (dragItem) {
       window.addEventListener('mousemove', handleMove);
       window.addEventListener('touchmove', handleMove, { passive: false });
       window.addEventListener('mouseup', handleEnd);
@@ -405,7 +286,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         window.removeEventListener('touchend', handleEnd);
       };
     }
-  }, [dragItem, resizeItem, pixelsPerHour, onUpdateAppointment, onUpdateBreak]);
+  }, [dragItem, pixelsPerHour, onUpdateAppointment, onUpdateBreak]);
 
   /**
    * Render time labels (hourly and 15-minute intervals)
@@ -594,9 +475,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 onDragStart={(id, startTime, clientY) =>
                   handleDragStart(id, 'appointment', startTime, clientY)
                 }
-                onResizeStart={(id, duration, clientY, handle, startTime) =>
-                  handleResizeStart(id, 'appointment', duration, clientY, handle, startTime)
-                }
                 onUpdateDuration={handleUpdateDuration}
                 canAdjustDuration={canAdjustDuration}
                 pixelsPerHour={pixelsPerHour}
@@ -617,9 +495,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 onDelete={onDeleteBreak}
                 onDragStart={(id, startTime, clientY) =>
                   handleDragStart(id, 'break', startTime, clientY)
-                }
-                onResizeStart={(id, duration, clientY, handle, startTime) =>
-                  handleResizeStart(id, 'break', duration, clientY, handle, startTime)
                 }
                 onUpdateDuration={handleUpdateBreakDuration}
                 canAdjustDuration={canAdjustDuration}

@@ -8,7 +8,6 @@ interface BreakBlockProps {
   breakItem: Break;
   onDelete: (id: string) => void;
   onDragStart: (id: string, startTime: string, clientY: number) => void;
-  onResizeStart: (id: string, duration: number, clientY: number, handle: 'top' | 'bottom', startTime: string) => void;
   onUpdateDuration: (id: string, newDuration: number) => void;
   canAdjustDuration: (id: string, currentDuration: number, adjustment: number) => boolean;
   pixelsPerHour?: number;
@@ -23,7 +22,6 @@ export const BreakBlock: React.FC<BreakBlockProps> = ({
   breakItem,
   onDelete,
   onDragStart,
-  onResizeStart,
   onUpdateDuration,
   canAdjustDuration,
   pixelsPerHour = 80,
@@ -99,28 +97,15 @@ export const BreakBlock: React.FC<BreakBlockProps> = ({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.classList.contains('resize-handle')) return;
     if (target.tagName === 'BUTTON' || target.closest('button')) return;
     onDragStart(breakItem.id, breakItem.start_time, e.clientY);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
-    if (target.classList.contains('resize-handle')) return;
     if (target.tagName === 'BUTTON' || target.closest('button')) return;
     const touch = e.touches[0];
     onDragStart(breakItem.id, breakItem.start_time, touch.clientY);
-  };
-
-  const handleResizeMouseDown = (e: React.MouseEvent, handle: 'top' | 'bottom') => {
-    e.stopPropagation();
-    onResizeStart(breakItem.id, breakItem.duration_minutes, e.clientY, handle, breakItem.start_time);
-  };
-
-  const handleResizeTouchStart = (e: React.TouchEvent, handle: 'top' | 'bottom') => {
-    e.stopPropagation();
-    const touch = e.touches[0];
-    onResizeStart(breakItem.id, breakItem.duration_minutes, touch.clientY, handle, breakItem.start_time);
   };
 
   return (
@@ -134,13 +119,6 @@ export const BreakBlock: React.FC<BreakBlockProps> = ({
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
     >
-      {/* Top resize handle */}
-      <div
-        className="resize-handle absolute top-0 left-0 right-0 h-3 bg-amber-300/55 hover:bg-amber-400 cursor-ns-resize rounded-t-md pointer-events-auto z-20"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'top')}
-        onTouchStart={(e) => handleResizeTouchStart(e, 'top')}
-        title="Тягніть, щоб змінити час початку"
-      />
       <div className="p-2 h-full relative flex items-center">
 
         {/* Dropdown menu */}
@@ -214,11 +192,11 @@ export const BreakBlock: React.FC<BreakBlockProps> = ({
         {/* Content */}
         <div className="flex items-center gap-2 w-full justify-between">
           <div className="flex items-center gap-2">
-            <div className="font-medium text-sm sm:text-base">
+            <div className="font-medium text-lg sm:text-xl">
               Перерва {format(parseISO(breakItem.start_time), 'HH:mm', { locale: uk })} -{' '}
               {format(parseISO(breakItem.end_time), 'HH:mm', { locale: uk })}
             </div>
-            <div className="text-sm opacity-75 whitespace-nowrap">
+            <div className="text-lg opacity-75 whitespace-nowrap">
               ({breakItem.duration_minutes} хв)
             </div>
           </div>
@@ -255,14 +233,6 @@ export const BreakBlock: React.FC<BreakBlockProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Resize handle */}
-      <div
-        className="resize-handle absolute bottom-0 left-0 right-0 h-3 bg-amber-300/55 hover:bg-amber-400 cursor-ns-resize"
-        onMouseDown={(e) => handleResizeMouseDown(e, 'bottom')}
-        onTouchStart={(e) => handleResizeTouchStart(e, 'bottom')}
-        title="Тягніть, щоб змінити час завершення"
-      />
     </div>
   );
 };

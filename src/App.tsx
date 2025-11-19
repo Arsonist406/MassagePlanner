@@ -132,35 +132,29 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-              Планер масажів
-            </h1>
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setShowForm(!showForm)}
-                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors font-medium text-sm sm:text-base"
-              >
-                {showForm ? 'Сховати форму' : '+ Новий запис'}
-              </button>
-              <button
-                onClick={handleAutoInsertBreaks}
-                disabled={appointments.length < 2}
-                className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium text-sm sm:text-base"
-                title="Insert 15-minute breaks between appointments"
-              >
-                Автоматично вставити перерви
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            Планер масажів
+          </h1>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors font-medium text-sm sm:text-base"
+            >
+              {showForm ? 'Сховати форму' : '+ Новий запис'}
+            </button>
+            <button
+              onClick={handleAutoInsertBreaks}
+              disabled={appointments.length < 2}
+              className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium text-sm sm:text-base"
+              title="Insert 15-minute breaks between appointments"
+            >
+              Автоматично вставити перерви
+            </button>
+          </div>
+        </div>
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
             <p className="text-red-800 text-sm">{error}</p>
@@ -225,15 +219,6 @@ function App() {
           </div>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="py-6 bg-white border-t border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-sm text-gray-500">
-            Планер масажів
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

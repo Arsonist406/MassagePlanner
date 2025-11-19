@@ -130,9 +130,13 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
           value={formData.client_name}
           onChange={handleChange}
           placeholder="Введіть ім'я клієнта"
+          maxLength={40}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           required
         />
+        <div className="text-xs text-gray-500 mt-1 text-right">
+          {formData.client_name.length}/40
+        </div>
       </div>
 
       {/* Notes */}
@@ -150,8 +154,12 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
           onChange={handleChange}
           placeholder="Додаткова інформація про запис"
           rows={3}
+          maxLength={300}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
         />
+        <div className="text-xs text-gray-500 mt-1 text-right">
+          {(formData.notes || '').length}/300
+        </div>
       </div>
 
       {/* Time */}
