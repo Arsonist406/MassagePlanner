@@ -173,14 +173,14 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div className="flex flex-row items-center justify-between gap-3 mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
             Планер масажів
           </h1>
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setShowForm(!showForm)}
-              className="px-5 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors font-medium text-base sm:text-lg"
+              className="px-5 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors font-medium text-base sm:text-lg whitespace-nowrap"
             >
               {showForm ? 'Сховати форму' : '+ Новий запис'}
             </button>
