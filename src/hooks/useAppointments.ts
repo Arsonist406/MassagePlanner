@@ -9,9 +9,7 @@ import {
   createBreak as createBreakService,
   updateBreak as updateBreakService,
   deleteBreak as deleteBreakService,
-  calculateEndTime,
 } from '../services/appointmentService';
-import { parseISO, formatISO } from 'date-fns';
 
 /**
  * Custom hook for managing appointments and breaks
