@@ -380,7 +380,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
           className="absolute right-0 border-t-2 border-gray-400"
           style={{ 
             top: `${(hour - startHour) * pixelsPerHour}px`,
-            left: '-12px'
+            left: '0px'
           }}
         />
       );
@@ -396,7 +396,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               className="absolute right-0 border-t"
               style={{ 
                 top: `${(hour - startHour) * pixelsPerHour + (minutes / 60) * pixelsPerHour}px`,
-                left: '-12px',
+                left: '0px',
                 borderColor: '#9ca3af',
                 borderWidth: '1.5px'
               }}
@@ -416,7 +416,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               className="absolute right-0 border-t"
               style={{ 
                 top: `${(hour - startHour) * pixelsPerHour + (minutes / 60) * pixelsPerHour}px`,
-                left: '-12px',
+                left: '0px',
                 borderColor: '#d1d5db'
               }}
             />
