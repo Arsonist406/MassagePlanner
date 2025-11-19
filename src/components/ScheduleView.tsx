@@ -327,7 +327,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   }, [dragItem, pixelsPerHour, onUpdateAppointment, onUpdateBreak]);
 
   /**
-   * Render time labels (hourly and 15-minute intervals)
+   * Render time labels (hourly and 5-minute intervals)
    */
   const renderTimeLabels = () => {
     const labels = [];
@@ -344,18 +344,20 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         </div>
       );
       
-      // 15-minute interval labels (smaller, lighter)
+      // 5-minute interval labels (smaller, lighter)
       if (hour < endHour) {
-        for (let quarter = 1; quarter < 4; quarter++) {
-          const minutes = quarter * 15;
-          const quarterTime = setMinutes(setHours(new Date(), hour), minutes);
+        for (let i = 1; i < 12; i++) {
+          const minutes = i * 5;
+          const intervalTime = setMinutes(setHours(new Date(), hour), minutes);
+          // Make 15-minute marks slightly more prominent
+          const isQuarterHour = minutes % 15 === 0;
           labels.push(
             <div
-              key={`quarter-${hour}-${minutes}`}
-              className="absolute left-0 pl-2 text-sm text-gray-500 font-medium"
+              key={`interval-${hour}-${minutes}`}
+              className={`absolute left-0 pl-2 ${isQuarterHour ? 'text-sm text-gray-500 font-medium' : 'text-xs text-gray-400'}`}
               style={{ top: `${(hour - startHour) * pixelsPerHour + (minutes / 60) * pixelsPerHour - 6}px` }}
             >
-              {format(quarterTime, 'HH:mm', { locale: uk })}
+              {format(intervalTime, 'HH:mm', { locale: uk })}
             </div>
           );
         }
