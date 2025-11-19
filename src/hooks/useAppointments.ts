@@ -162,65 +162,6 @@ export const useAppointments = () => {
   }, []);
 
   /**
-   * Auto-insert 15-minute breaks between appointments
-   * This will identify gaps and insert breaks where needed
-   */
-  const autoInsertBreaks = useCallback(async () => {
-    try {
-      // Sort appointments by start time
-      const sortedAppointments = [...appointments].sort((a, b) =>
-        a.start_time.localeCompare(b.start_time)
-      );
-
-      const newBreaks: Break[] = [];
-
-      // Check gaps between consecutive appointments
-      for (let i = 0; i < sortedAppointments.length - 1; i++) {
-        const current = sortedAppointments[i];
-        const next = sortedAppointments[i + 1];
-
-        const currentEnd = parseISO(current.end_time);
-        const nextStart = parseISO(next.start_time);
-
-        // Calculate gap in minutes
-        const gapMinutes =
-          (nextStart.getTime() - currentEnd.getTime()) / (1000 * 60);
-
-        // If there's a gap and no break already exists, insert a 15-minute break
-        if (gapMinutes > 0) {
-          const breakStart = formatISO(currentEnd);
-          const breakEnd = calculateEndTime(breakStart, 15);
-
-          // Check if break already exists at this time
-          const breakExists = breaks.some(
-            (brk) => brk.start_time === breakStart
-          );
-
-          if (!breakExists && parseISO(breakEnd) <= nextStart) {
-            const newBreak = await createBreakService({
-              start_time: breakStart,
-              duration_minutes: 15,
-              end_time: breakEnd,
-            });
-            newBreaks.push(newBreak);
-          }
-        }
-      }
-
-      if (newBreaks.length > 0) {
-        setBreaks((prev) => [...prev, ...newBreaks].sort((a, b) =>
-          a.start_time.localeCompare(b.start_time)
-        ));
-      }
-
-      return newBreaks.length;
-    } catch (err) {
-      setError('Failed to auto-insert breaks');
-      throw err;
-    }
-  }, [appointments, breaks]);
-
-  /**
    * Get all schedule items (appointments + breaks) sorted by time
    */
   const getAllScheduleItems = useCallback((): ScheduleItem[] => {
@@ -241,7 +182,6 @@ export const useAppointments = () => {
     createBreak,
     updateBreak,
     deleteBreak,
-    autoInsertBreaks,
     getAllScheduleItems,
   };
 };

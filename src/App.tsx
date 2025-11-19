@@ -21,7 +21,6 @@ function App() {
     createBreak,
     updateBreak,
     deleteBreak,
-    autoInsertBreaks,
   } = useAppointments();
 
   const [showForm, setShowForm] = useState(false);
@@ -132,19 +131,6 @@ function App() {
   };
 
   /**
-   * Handle auto-insert breaks
-   */
-  const handleAutoInsertBreaks = async () => {
-    try {
-      const count = await autoInsertBreaks();
-      alert(`Inserted ${count} break(s) between appointments.`);
-    } catch (err) {
-      console.error('Failed to auto-insert breaks:', err);
-      alert('Failed to insert breaks. Please try again.');
-    }
-  };
-
-  /**
    * Cancel form
    */
   const handleCancelForm = () => {
@@ -174,17 +160,9 @@ function App() {
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setShowForm(!showForm)}
-              className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors font-medium text-sm sm:text-base"
+              className="px-5 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors font-medium text-base sm:text-lg"
             >
               {showForm ? 'Сховати форму' : '+ Новий запис'}
-            </button>
-            <button
-              onClick={handleAutoInsertBreaks}
-              disabled={appointments.length < 2}
-              className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium text-sm sm:text-base"
-              title="Insert 15-minute breaks between appointments"
-            >
-              Автоматично вставити перерви
             </button>
           </div>
         </div>

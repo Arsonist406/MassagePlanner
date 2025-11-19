@@ -122,18 +122,12 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   /**
-   * Check if a duration adjustment is valid
+   * Check if a time shift is valid
    */
-  const canAdjustDuration = (
+  const canShiftTime = (
     id: string,
-    currentDuration: number,
-    adjustment: number
+    minutesShift: number
   ): boolean => {
-    const newDuration = currentDuration + adjustment;
-    
-    // Check minimum duration
-    if (newDuration < 5) return false;
-    
     // Find the item
     const appointment = appointments.find(a => a.id === id);
     const breakItem = breaks.find(b => b.id === id);
@@ -141,16 +135,22 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     
     if (!item) return false;
     
-    const startTime = parseISO(item.start_time);
-    const endTime = new Date(startTime.getTime() + newDuration * 60000);
-    const maxTime = new Date(startTime);
-    maxTime.setHours(23, 0, 0, 0);
+    const currentStartTime = parseISO(item.start_time);
+    const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
+    const newEndTime = new Date(newStartTime.getTime() + item.duration_minutes * 60000);
     
-    // Check if end time exceeds 23:00
-    if (endTime > maxTime) return false;
+    // Check if new start time is before 7:00
+    const minTime = new Date(newStartTime);
+    minTime.setHours(7, 0, 0, 0);
+    if (newStartTime < minTime) return false;
+    
+    // Check if new end time exceeds 23:00
+    const maxTime = new Date(newStartTime);
+    maxTime.setHours(23, 0, 0, 0);
+    if (newEndTime > maxTime) return false;
     
     // Check for overlaps
-    if (hasOverlap(id, startTime, newDuration)) return false;
+    if (hasOverlap(id, newStartTime, item.duration_minutes)) return false;
     
     return true;
   };
@@ -192,65 +192,75 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   /**
-   * Handle duration update with 23:00 constraint and overlap check
+   * Handle appointment start time update with constraints and overlap check
    */
-  const handleUpdateDuration = (id: string, newDuration: number) => {
+  const handleUpdateAppointmentStartTime = (id: string, minutesShift: number) => {
     const appointment = appointments.find(a => a.id === id);
     if (!appointment) return;
 
-    const startTime = parseISO(appointment.start_time);
-    const endTime = new Date(startTime.getTime() + newDuration * 60000);
-    const maxTime = new Date(startTime);
-    maxTime.setHours(23, 0, 0, 0);
+    const currentStartTime = parseISO(appointment.start_time);
+    const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
+    const newEndTime = new Date(newStartTime.getTime() + appointment.duration_minutes * 60000);
 
-    // Check if end time exceeds 23:00
-    if (endTime > maxTime) {
-      const maxDuration = Math.floor((maxTime.getTime() - startTime.getTime()) / 60000);
-      if (maxDuration < 5) {
-        alert('Неможливо змінити тривалість: запис виходить за межі робочого часу (23:00)');
-        return;
-      }
-      newDuration = maxDuration;
-    }
-
-    // Check for overlaps
-    if (hasOverlap(id, startTime, newDuration)) {
-      alert('Неможливо змінити тривалість: запис перетинається з іншим записом або перервою');
+    // Check if new start time is before 7:00
+    const minTime = new Date(newStartTime);
+    minTime.setHours(7, 0, 0, 0);
+    if (newStartTime < minTime) {
+      alert('Неможливо перемістити: запис виходить за межі робочого часу (7:00)');
       return;
     }
 
-    onUpdateAppointment(id, { duration_minutes: newDuration });
+    // Check if new end time exceeds 23:00
+    const maxTime = new Date(newStartTime);
+    maxTime.setHours(23, 0, 0, 0);
+    if (newEndTime > maxTime) {
+      alert('Неможливо перемістити: запис виходить за межі робочого часу (23:00)');
+      return;
+    }
+
+    // Check for overlaps
+    if (hasOverlap(id, newStartTime, appointment.duration_minutes)) {
+      alert('Неможливо перемістити: запис перетинається з іншим записом або перервою');
+      return;
+    }
+
+    onUpdateAppointment(id, { start_time: newStartTime.toISOString() });
   };
 
   /**
-   * Handle break duration update with 23:00 constraint and overlap check
+   * Handle break start time update with constraints and overlap check
    */
-  const handleUpdateBreakDuration = (id: string, newDuration: number) => {
+  const handleUpdateBreakStartTime = (id: string, minutesShift: number) => {
     const breakItem = breaks.find(b => b.id === id);
     if (!breakItem) return;
 
-    const startTime = parseISO(breakItem.start_time);
-    const endTime = new Date(startTime.getTime() + newDuration * 60000);
-    const maxTime = new Date(startTime);
-    maxTime.setHours(23, 0, 0, 0);
+    const currentStartTime = parseISO(breakItem.start_time);
+    const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
+    const newEndTime = new Date(newStartTime.getTime() + breakItem.duration_minutes * 60000);
 
-    // Check if end time exceeds 23:00
-    if (endTime > maxTime) {
-      const maxDuration = Math.floor((maxTime.getTime() - startTime.getTime()) / 60000);
-      if (maxDuration < 5) {
-        alert('Неможливо змінити тривалість: перерва виходить за межі робочого часу (23:00)');
-        return;
-      }
-      newDuration = maxDuration;
-    }
-
-    // Check for overlaps
-    if (hasOverlap(id, startTime, newDuration)) {
-      alert('Неможливо змінити тривалість: перерва перетинається з іншим записом або перервою');
+    // Check if new start time is before 7:00
+    const minTime = new Date(newStartTime);
+    minTime.setHours(7, 0, 0, 0);
+    if (newStartTime < minTime) {
+      alert('Неможливо перемістити: перерва виходить за межі робочого часу (7:00)');
       return;
     }
 
-    onUpdateBreak(id, { duration_minutes: newDuration });
+    // Check if new end time exceeds 23:00
+    const maxTime = new Date(newStartTime);
+    maxTime.setHours(23, 0, 0, 0);
+    if (newEndTime > maxTime) {
+      alert('Неможливо перемістити: перерва виходить за межі робочого часу (23:00)');
+      return;
+    }
+
+    // Check for overlaps
+    if (hasOverlap(id, newStartTime, breakItem.duration_minutes)) {
+      alert('Неможливо перемістити: перерва перетинається з іншим записом або перервою');
+      return;
+    }
+
+    onUpdateBreak(id, { start_time: newStartTime.toISOString() });
   };
 
   /**
@@ -503,8 +513,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 onDragStart={(id, startTime, clientY) =>
                   handleDragStart(id, 'appointment', startTime, clientY)
                 }
-                onUpdateDuration={handleUpdateDuration}
-                canAdjustDuration={canAdjustDuration}
+                onUpdateStartTime={handleUpdateAppointmentStartTime}
+                canShiftTime={canShiftTime}
                 pixelsPerHour={pixelsPerHour}
                 scrollContainerId="schedule-container"
               />
@@ -524,8 +534,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 onDragStart={(id, startTime, clientY) =>
                   handleDragStart(id, 'break', startTime, clientY)
                 }
-                onUpdateDuration={handleUpdateBreakDuration}
-                canAdjustDuration={canAdjustDuration}
+                onUpdateStartTime={handleUpdateBreakStartTime}
+                canShiftTime={canShiftTime}
                 pixelsPerHour={pixelsPerHour}
                 scrollContainerId="schedule-container"
               />

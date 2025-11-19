@@ -8,8 +8,8 @@ interface BreakBlockProps {
   breakItem: Break;
   onDelete: (id: string) => void;
   onDragStart: (id: string, startTime: string, clientY: number) => void;
-  onUpdateDuration: (id: string, newDuration: number) => void;
-  canAdjustDuration: (id: string, currentDuration: number, adjustment: number) => boolean;
+  onUpdateStartTime: (id: string, minutesShift: number) => void;
+  canShiftTime: (id: string, minutesShift: number) => boolean;
   pixelsPerHour?: number;
   scrollContainerId?: string;
 }
@@ -22,8 +22,8 @@ export const BreakBlock: React.FC<BreakBlockProps> = ({
   breakItem,
   onDelete,
   onDragStart,
-  onUpdateDuration,
-  canAdjustDuration,
+  onUpdateStartTime,
+  canShiftTime,
   pixelsPerHour = 80,
   scrollContainerId,
 }) => {
@@ -131,48 +131,46 @@ export const BreakBlock: React.FC<BreakBlockProps> = ({
               left: `${menuPosition.left}px`,
             }}
           >
-              <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-100">Тривалість</div>
+              <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-100">Перемістити</div>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  const newDuration = Math.max(5, breakItem.duration_minutes - 10);
-                  onUpdateDuration(breakItem.id, newDuration);
+                  onUpdateStartTime(breakItem.id, -10);
                 }}
-                disabled={!canAdjustDuration(breakItem.id, breakItem.duration_minutes, -10)}
+                disabled={!canShiftTime(breakItem.id, -10)}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
               >
-                -10 хвилин
+                На 10 хв раніше
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  const newDuration = Math.max(5, breakItem.duration_minutes - 5);
-                  onUpdateDuration(breakItem.id, newDuration);
+                  onUpdateStartTime(breakItem.id, -5);
                 }}
-                disabled={!canAdjustDuration(breakItem.id, breakItem.duration_minutes, -5)}
+                disabled={!canShiftTime(breakItem.id, -5)}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
               >
-                -5 хвилин
+                На 5 хв раніше
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onUpdateDuration(breakItem.id, breakItem.duration_minutes + 5);
+                  onUpdateStartTime(breakItem.id, 5);
                 }}
-                disabled={!canAdjustDuration(breakItem.id, breakItem.duration_minutes, 5)}
+                disabled={!canShiftTime(breakItem.id, 5)}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
               >
-                +5 хвилин
+                На 5 хв пізніше
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onUpdateDuration(breakItem.id, breakItem.duration_minutes + 10);
+                  onUpdateStartTime(breakItem.id, 10);
                 }}
-                disabled={!canAdjustDuration(breakItem.id, breakItem.duration_minutes, 10)}
+                disabled={!canShiftTime(breakItem.id, 10)}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
               >
-                +10 хвилин
+                На 10 хв пізніше
               </button>
               <div className="border-t border-gray-100 my-1"></div>
               <button
@@ -192,15 +190,15 @@ export const BreakBlock: React.FC<BreakBlockProps> = ({
         {/* Content */}
         <div className="flex items-center gap-2 w-full justify-between">
           <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
-            <div className="font-medium text-lg sm:text-xl">
+            <div className="font-medium text-xl sm:text-2xl">
               Перерва
             </div>
             <div className="flex items-center gap-2">
-              <div className="text-base sm:text-lg">
+              <div className="text-lg sm:text-xl">
                 {format(parseISO(breakItem.start_time), 'HH:mm', { locale: uk })} -{' '}
                 {format(parseISO(breakItem.end_time), 'HH:mm', { locale: uk })}
               </div>
-              <div className="text-base sm:text-lg opacity-75 whitespace-nowrap">
+              <div className="text-lg sm:text-xl opacity-75 whitespace-nowrap">
                 ({breakItem.duration_minutes} хв)
               </div>
             </div>
