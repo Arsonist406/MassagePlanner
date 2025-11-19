@@ -103,23 +103,15 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
     onDragStart(appointment.id, appointment.start_time, e.clientY);
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'BUTTON' || target.closest('button')) return;
-    const touch = e.touches[0];
-    onDragStart(appointment.id, appointment.start_time, touch.clientY);
-  };
-
   return (
     <div
-      className="appointment-block absolute left-0 right-0 bg-primary-500 text-white rounded-md shadow-md cursor-move select-none mx-1"
+      className="appointment-block absolute left-0 right-0 bg-primary-500 text-white rounded-md shadow-md select-none mx-1 md:cursor-move"
       style={{
         height: `${heightPixels}px`,
         minHeight: '40px',
         overflow: 'visible',
       }}
       onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
     >
       <div className="p-2 h-full relative flex items-center">
 

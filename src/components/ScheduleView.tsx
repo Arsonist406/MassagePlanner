@@ -40,6 +40,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     type: 'appointment' | 'break';
     startY: number;
     startTime: string;
+    hasMoved: boolean;
   } | null>(null);
 
   const totalHours = endHour - startHour;
@@ -188,7 +189,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     startTime: string,
     clientY: number
   ) => {
-    setDragItem({ id, type, startY: clientY, startTime });
+    setDragItem({ id, type, startY: clientY, startTime, hasMoved: false });
   };
 
   /**
@@ -269,8 +270,15 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   useEffect(() => {
     const handleMove = (e: MouseEvent | TouchEvent) => {
       if (dragItem) {
+        const clientY = e instanceof MouseEvent ? e.clientY : e.touches[0]?.clientY;
+        
+        // Mark as moved if mouse/touch has moved more than 5 pixels from start
+        if (clientY && Math.abs(clientY - dragItem.startY) > 5) {
+          setDragItem(prev => prev ? { ...prev, hasMoved: true } : null);
+        }
+        
         // Prevent scrolling while dragging on touch devices
-        if (e instanceof TouchEvent) {
+        if (e instanceof TouchEvent && dragItem.hasMoved) {
           e.preventDefault();
         }
       }
@@ -281,29 +289,32 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         e instanceof MouseEvent ? e.clientY : e.changedTouches[0]?.clientY;
 
       if (dragItem && clientY) {
-        const scheduleEl = document.getElementById('schedule-container');
-        if (scheduleEl) {
-          const rect = scheduleEl.getBoundingClientRect();
-          const newTime = yToTime(clientY, rect.top, scheduleEl.scrollTop);
-          
-          // Get current item to check its duration
-          const currentItem = dragItem.type === 'appointment'
-            ? appointments.find(a => a.id === dragItem.id)
-            : breaks.find(b => b.id === dragItem.id);
-          
-          if (currentItem) {
-            // Check for overlaps
-            if (hasOverlap(dragItem.id, newTime, currentItem.duration_minutes)) {
-              alert('Неможливо перемістити: новий час перетинається з іншим записом або перервою');
-              setDragItem(null);
-              return;
-            }
+        // Only move if actually dragged, not just clicked
+        if (dragItem.hasMoved) {
+          const scheduleEl = document.getElementById('schedule-container');
+          if (scheduleEl) {
+            const rect = scheduleEl.getBoundingClientRect();
+            const newTime = yToTime(clientY, rect.top, scheduleEl.scrollTop);
             
-            const newTimeISO = newTime.toISOString();
-            if (dragItem.type === 'appointment') {
-              onUpdateAppointment(dragItem.id, { start_time: newTimeISO });
-            } else {
-              onUpdateBreak(dragItem.id, { start_time: newTimeISO });
+            // Get current item to check its duration
+            const currentItem = dragItem.type === 'appointment'
+              ? appointments.find(a => a.id === dragItem.id)
+              : breaks.find(b => b.id === dragItem.id);
+            
+            if (currentItem) {
+              // Check for overlaps
+              if (hasOverlap(dragItem.id, newTime, currentItem.duration_minutes)) {
+                alert('Неможливо перемістити: новий час перетинається з іншим записом або перервою');
+                setDragItem(null);
+                return;
+              }
+              
+              const newTimeISO = newTime.toISOString();
+              if (dragItem.type === 'appointment') {
+                onUpdateAppointment(dragItem.id, { start_time: newTimeISO });
+              } else {
+                onUpdateBreak(dragItem.id, { start_time: newTimeISO });
+              }
             }
           }
         }

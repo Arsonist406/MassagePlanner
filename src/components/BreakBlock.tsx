@@ -101,23 +101,15 @@ export const BreakBlock: React.FC<BreakBlockProps> = ({
     onDragStart(breakItem.id, breakItem.start_time, e.clientY);
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'BUTTON' || target.closest('button')) return;
-    const touch = e.touches[0];
-    onDragStart(breakItem.id, breakItem.start_time, touch.clientY);
-  };
-
   return (
     <div
-      className="appointment-block absolute left-0 right-0 bg-amber-100 border-2 border-amber-300 text-amber-800 rounded-md cursor-move select-none mx-1"
+      className="appointment-block absolute left-0 right-0 bg-amber-100 border-2 border-amber-300 text-amber-800 rounded-md select-none mx-1 md:cursor-move"
       style={{
         height: `${heightPixels}px`,
         minHeight: '30px',
         overflow: 'visible',
       }}
       onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
     >
       <div className="p-2 h-full relative flex items-center">
 
