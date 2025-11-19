@@ -124,13 +124,13 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
 
   return (
     <div className="bg-white rounded-lg shadow p-4">
-      <h3 className="text-sm font-semibold text-gray-700 mb-3">Огляд дня</h3>
-      
+      {/* <h3 className="text-sm font-semibold text-gray-700 mb-3">Огляд дня</h3>
+       */}
       {/* Mini-map container */}
       <div
         ref={miniMapRef}
         className="relative bg-gray-50 rounded border border-gray-300 cursor-pointer hover:border-gray-400 transition-colors"
-        style={{ height: '100px', width: '100%' }}
+        style={{ height: '50px', width: '100%' }}
         onClick={handleMiniMapClick}
       >
         {/* Hour markers */}
