@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAppointments } from './hooks/useAppointments';
 import { AppointmentForm } from './components/AppointmentForm';
 import { ScheduleView } from './components/ScheduleView';
+import { ScheduleMiniMapHorizontal } from './components/ScheduleMiniMapHorizontal';
 import { calculateEndTime } from './services/appointmentService';
 import type { Appointment } from './types';
 
@@ -206,25 +207,36 @@ function App() {
               onEditAppointment={handleEditAppointment}
             />
 
-            {/* Stats - Mobile Only */}
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-4 lg:hidden">
+            {/* Horizontal Minimap and Stats - Mobile Only */}
+            <div className="mt-4 space-y-4 lg:hidden">
+              {/* Horizontal Minimap */}
+              <ScheduleMiniMapHorizontal
+                appointments={appointments}
+                breaks={breaks}
+                startHour={7}
+                endHour={23}
+                scheduleContainerId="schedule-container"
+              />
+              
+              {/* Aggregated Statistics */}
               <div className="bg-white rounded-lg shadow p-4">
-                <div className="text-2xl font-bold text-primary-600">
-                  {appointments.length}
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Статистика</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Записи:</span>
+                    <span className="text-xl font-bold text-primary-600">{appointments.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Перерви:</span>
+                    <span className="text-xl font-bold text-amber-600">{breaks.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                    <span className="text-sm text-gray-600">Загальна тривалість:</span>
+                    <span className="text-xl font-bold text-green-600">
+                      {appointments.reduce((sum, apt) => sum + apt.duration_minutes, 0)} хв
+                    </span>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600">Записи</div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="text-2xl font-bold text-amber-600">
-                  {breaks.length}
-                </div>
-                <div className="text-sm text-gray-600">Перерви</div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4 col-span-2 sm:col-span-1">
-                <div className="text-2xl font-bold text-green-600">
-                  {appointments.reduce((sum, apt) => sum + apt.duration_minutes, 0)}
-                </div>
-                <div className="text-sm text-gray-600">Загальна тривалість (хв)</div>
               </div>
             </div>
           </div>

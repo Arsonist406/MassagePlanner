@@ -483,7 +483,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
           className="relative overflow-y-auto"
           style={{
             height: 'calc(100vh - 240px)',
-            minHeight: '600px',
+            minHeight: '400px',
+            maxHeight: '600px',
           }}
         >
         {/* Time labels */}
