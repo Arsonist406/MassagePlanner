@@ -24,6 +24,7 @@ export const ScheduleMiniMap: React.FC<ScheduleMiniMapProps> = ({
   const miniMapRef = useRef<HTMLDivElement>(null);
   const [viewportTop, setViewportTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(100);
+  const [currentTimePosition, setCurrentTimePosition] = useState<number | null>(null);
 
   const totalHours = endHour - startHour;
   const miniMapHeight = 480; // Total height of mini-map
@@ -81,6 +82,24 @@ export const ScheduleMiniMap: React.FC<ScheduleMiniMapProps> = ({
   };
 
   /**
+   * Update current time position
+   */
+  const updateCurrentTime = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Only show if current time is within schedule hours
+    if (currentHour >= startHour && currentHour < endHour) {
+      const hoursFromStart = currentHour - startHour + currentMinute / 60;
+      const position = hoursFromStart * pixelsPerHour;
+      setCurrentTimePosition(position);
+    } else {
+      setCurrentTimePosition(null);
+    }
+  };
+
+  /**
    * Listen to scroll events
    */
   useEffect(() => {
@@ -96,6 +115,15 @@ export const ScheduleMiniMap: React.FC<ScheduleMiniMapProps> = ({
       window.removeEventListener('resize', updateViewport);
     };
   }, [scheduleContainerId]);
+
+  /**
+   * Update current time position periodically
+   */
+  useEffect(() => {
+    updateCurrentTime();
+    const interval = setInterval(updateCurrentTime, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, [startHour, endHour, pixelsPerHour]);
 
   /**
    * Render hour labels
@@ -191,9 +219,22 @@ export const ScheduleMiniMap: React.FC<ScheduleMiniMapProps> = ({
             );
           })}
 
+          {/* Current time indicator */}
+          {currentTimePosition !== null && (
+            <div
+              className="absolute left-0 right-0 pointer-events-none z-20"
+              style={{ top: `${currentTimePosition}px` }}
+            >
+              <div className="w-full h-0.5" style={{ backgroundColor: '#1e293b' }} />
+              <div className="absolute left-0 top-0 transform -translate-y-1/2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1e293b' }} />
+              </div>
+            </div>
+          )}
+
           {/* Viewport indicator */}
           <div
-            className="absolute left-0 right-0 bg-blue-500/20 border-2 border-blue-500 rounded pointer-events-none"
+            className="absolute left-0 right-0 bg-green-600/60 border-2 border-green-600 rounded pointer-events-none"
             style={{
               top: `${viewportTop}px`,
               height: `${viewportHeight}px`,
@@ -203,14 +244,24 @@ export const ScheduleMiniMap: React.FC<ScheduleMiniMapProps> = ({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-4 text-base text-gray-600">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 bg-primary-500 rounded flex-shrink-0" />
-          <span>Записи</span>
+      <div className="flex flex-col gap-3 mt-4 text-base text-gray-600">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 bg-primary-500 rounded flex-shrink-0" />
+            <span>Записи</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 bg-amber-400 border border-amber-500 rounded flex-shrink-0" />
+            <span>Перерви</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-5 h-5 bg-amber-400 border border-amber-500 rounded flex-shrink-0" />
-          <span>Перерви</span>
+          <div className="w-5 h-0.5 flex-shrink-0" style={{ backgroundColor: '#1e293b' }} />
+          <span>Поточний час</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 bg-green-600/60 border-2 border-green-600 rounded flex-shrink-0" />
+          <span>Видимість екрану</span>
         </div>
       </div>
 

@@ -16,6 +16,8 @@ interface ScheduleViewProps {
   onDeleteAppointment: (id: string) => void;
   onDeleteBreak: (id: string) => void;
   onEditAppointment: (appointment: Appointment) => void;
+  pauseAutoGeneration: () => void;
+  resumeAutoGeneration: () => void;
   startHour?: number;
   endHour?: number;
   pixelsPerHour?: number;
@@ -35,6 +37,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   onDeleteAppointment,
   onDeleteBreak,
   onEditAppointment,
+  pauseAutoGeneration,
+  resumeAutoGeneration,
   startHour = 7,
   endHour = 23,
   pixelsPerHour = 560,
@@ -48,9 +52,28 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   } | null>(null);
 
   const [showCalendar, setShowCalendar] = useState(false);
+  const [currentTimePosition, setCurrentTimePosition] = useState<number | null>(null);
 
   const totalHours = endHour - startHour;
   const scheduleHeight = totalHours * pixelsPerHour;
+
+  /**
+   * Update current time position
+   */
+  const updateCurrentTime = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Only show if current time is within schedule hours and it's today
+    if (isToday(selectedDate) && currentHour >= startHour && currentHour < endHour) {
+      const hoursFromStart = currentHour - startHour + currentMinute / 60;
+      const position = hoursFromStart * pixelsPerHour;
+      setCurrentTimePosition(position);
+    } else {
+      setCurrentTimePosition(null);
+    }
+  };
 
   /**
    * Auto-scroll to current time on mount
@@ -81,6 +104,15 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   }, []); // Run only on mount
 
   /**
+   * Update current time position periodically
+   */
+  useEffect(() => {
+    updateCurrentTime();
+    const interval = setInterval(updateCurrentTime, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, [selectedDate, startHour, endHour, pixelsPerHour]);
+
+  /**
    * Calculate position for a schedule item
    */
   const getItemPosition = (item: ScheduleItem): number => {
@@ -92,10 +124,10 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   /**
-   * Check if a time range overlaps with any existing items
+   * Check if appointment overlaps with other appointments (not breaks)
    */
-  const hasOverlap = (
-    itemId: string,
+  const appointmentOverlapsAppointment = (
+    appointmentId: string,
     newStartTime: Date,
     durationMinutes: number
   ): boolean => {
@@ -103,7 +135,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     
     // Check all appointments
     for (const apt of appointments) {
-      if (apt.id === itemId) continue;
+      if (apt.id === appointmentId) continue;
       const aptStart = parseISO(apt.start_time);
       const aptEnd = parseISO(apt.end_time);
       
@@ -113,19 +145,98 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
       }
     }
     
+    return false;
+  };
+
+  /**
+   * Check if a break overlaps with any appointments or breaks
+   */
+  const breakOverlapsAny = (
+    breakId: string,
+    newStartTime: Date,
+    durationMinutes: number
+  ): boolean => {
+    const newEndTime = new Date(newStartTime.getTime() + durationMinutes * 60000);
+    
+    // Check all appointments
+    for (const apt of appointments) {
+      const aptStart = parseISO(apt.start_time);
+      const aptEnd = parseISO(apt.end_time);
+      
+      if (newStartTime < aptEnd && newEndTime > aptStart) {
+        return true;
+      }
+    }
+    
     // Check all breaks
     for (const brk of breaks) {
-      if (brk.id === itemId) continue;
+      if (brk.id === breakId) continue;
       const brkStart = parseISO(brk.start_time);
       const brkEnd = parseISO(brk.end_time);
       
-      // Check if time ranges overlap
       if (newStartTime < brkEnd && newEndTime > brkStart) {
         return true;
       }
     }
     
     return false;
+  };
+
+  /**
+   * Shrink or delete breaks that overlap with an appointment's new position
+   */
+  const handleBreakOverlaps = async (
+    appointmentId: string,
+    newStartTime: Date,
+    durationMinutes: number
+  ) => {
+    const newEndTime = new Date(newStartTime.getTime() + durationMinutes * 60000);
+    
+    // Find all breaks that overlap with the new appointment position
+    const overlappingBreaks = breaks.filter(brk => {
+      const brkStart = parseISO(brk.start_time);
+      const brkEnd = parseISO(brk.end_time);
+      return newStartTime < brkEnd && newEndTime > brkStart;
+    });
+
+    // Process each overlapping break
+    for (const brk of overlappingBreaks) {
+      const brkStart = parseISO(brk.start_time);
+      const brkEnd = parseISO(brk.end_time);
+
+      // Check if appointment completely covers the break
+      if (newStartTime <= brkStart && newEndTime >= brkEnd) {
+        // Delete the break entirely
+        await onDeleteBreak(brk.id);
+      } else if (newStartTime > brkStart && newEndTime < brkEnd) {
+        // Appointment is in the middle of break - delete it (can't split)
+        await onDeleteBreak(brk.id);
+      } else if (newStartTime <= brkStart && newEndTime > brkStart) {
+        // Appointment overlaps the start of break - shrink from start
+        const newBreakStart = newEndTime;
+        const newBreakDuration = Math.floor((brkEnd.getTime() - newBreakStart.getTime()) / 60000);
+        
+        if (newBreakDuration >= 1) {
+          await onUpdateBreak(brk.id, {
+            start_time: newBreakStart.toISOString(),
+            duration_minutes: newBreakDuration
+          });
+        } else {
+          await onDeleteBreak(brk.id);
+        }
+      } else if (newStartTime < brkEnd && newEndTime >= brkEnd) {
+        // Appointment overlaps the end of break - shrink from end
+        const newBreakDuration = Math.floor((newStartTime.getTime() - brkStart.getTime()) / 60000);
+        
+        if (newBreakDuration >= 1) {
+          await onUpdateBreak(brk.id, {
+            duration_minutes: newBreakDuration
+          });
+        } else {
+          await onDeleteBreak(brk.id);
+        }
+      }
+    }
   };
 
   /**
@@ -156,8 +267,14 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     maxTime.setHours(23, 0, 0, 0);
     if (newEndTime > maxTime) return false;
     
-    // Check for overlaps
-    if (hasOverlap(id, newStartTime, item.duration_minutes)) return false;
+    // Check for overlaps based on item type
+    if (appointment) {
+      // Appointments can't overlap with other appointments (breaks will be handled automatically)
+      if (appointmentOverlapsAppointment(id, newStartTime, item.duration_minutes)) return false;
+    } else {
+      // Breaks can't overlap with anything
+      if (breakOverlapsAny(id, newStartTime, item.duration_minutes)) return false;
+    }
     
     return true;
   };
@@ -195,13 +312,14 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     startTime: string,
     clientY: number
   ) => {
+    pauseAutoGeneration();
     setDragItem({ id, type, startY: clientY, startTime, hasMoved: false });
   };
 
   /**
    * Handle appointment start time update with constraints and overlap check
    */
-  const handleUpdateAppointmentStartTime = (id: string, minutesShift: number) => {
+  const handleUpdateAppointmentStartTime = async (id: string, minutesShift: number) => {
     const appointment = appointments.find(a => a.id === id);
     if (!appointment) return;
 
@@ -225,13 +343,20 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
       return;
     }
 
-    // Check for overlaps
-    if (hasOverlap(id, newStartTime, appointment.duration_minutes)) {
-      alert('Неможливо перемістити: запис перетинається з іншим записом або перервою');
+    // Check for overlaps with other appointments only
+    if (appointmentOverlapsAppointment(id, newStartTime, appointment.duration_minutes)) {
+      alert('Неможливо перемістити: запис перетинається з іншим записом');
       return;
     }
 
-    onUpdateAppointment(id, { start_time: newStartTime.toISOString() });
+    // Handle any overlapping breaks (shrink or delete them)
+    await handleBreakOverlaps(id, newStartTime, appointment.duration_minutes);
+
+    // Update the appointment
+    await onUpdateAppointment(id, { start_time: newStartTime.toISOString() });
+    
+    // Resume auto-generation
+    resumeAutoGeneration();
   };
 
   /**
@@ -262,12 +387,158 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
 
     // Check for overlaps
-    if (hasOverlap(id, newStartTime, breakItem.duration_minutes)) {
+    if (breakOverlapsAny(id, newStartTime, breakItem.duration_minutes)) {
       alert('Неможливо перемістити: перерва перетинається з іншим записом або перервою');
       return;
     }
 
     onUpdateBreak(id, { start_time: newStartTime.toISOString() });
+  };
+
+  /**
+   * Check if bulk shift after is valid (includes current appointment and all after)
+   */
+  const canBulkShiftAfter = (appointmentId: string, minutesShift: number): boolean => {
+    const appointment = appointments.find(a => a.id === appointmentId);
+    if (!appointment) return false;
+
+    const appointmentStartTime = parseISO(appointment.start_time);
+
+    // Get all items (appointments and breaks) that start at or after this appointment's start time
+    const itemsAfter = [
+      ...appointments.filter(a => parseISO(a.start_time) >= appointmentStartTime),
+      ...breaks.filter(b => parseISO(b.start_time) >= appointmentStartTime)
+    ];
+
+    // Check if any item would go out of bounds
+    for (const item of itemsAfter) {
+      const currentStartTime = parseISO(item.start_time);
+      const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
+      const duration = item.duration_minutes;
+      const newEndTime = new Date(newStartTime.getTime() + duration * 60000);
+
+      // Check if new start time is before 7:00
+      const minTime = new Date(newStartTime);
+      minTime.setHours(7, 0, 0, 0);
+      if (newStartTime < minTime) return false;
+
+      // Check if new end time exceeds 23:00
+      const maxTime = new Date(newStartTime);
+      maxTime.setHours(23, 0, 0, 0);
+      if (newEndTime > maxTime) return false;
+    }
+
+    return true;
+  };
+
+  /**
+   * Check if bulk shift before is valid (includes current appointment and all before)
+   */
+  const canBulkShiftBefore = (appointmentId: string, minutesShift: number): boolean => {
+    const appointment = appointments.find(a => a.id === appointmentId);
+    if (!appointment) return false;
+
+    const appointmentEndTime = parseISO(appointment.end_time);
+
+    // Get all items (appointments and breaks) that end at or before this appointment's end time
+    const itemsBefore = [
+      ...appointments.filter(a => parseISO(a.end_time) <= appointmentEndTime),
+      ...breaks.filter(b => parseISO(b.end_time) <= appointmentEndTime)
+    ];
+
+    // Check if any item would go out of bounds
+    for (const item of itemsBefore) {
+      const currentStartTime = parseISO(item.start_time);
+      const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
+      const duration = item.duration_minutes;
+      const newEndTime = new Date(newStartTime.getTime() + duration * 60000);
+
+      // Check if new start time is before 7:00
+      const minTime = new Date(newStartTime);
+      minTime.setHours(7, 0, 0, 0);
+      if (newStartTime < minTime) return false;
+
+      // Check if new end time exceeds 23:00
+      const maxTime = new Date(newStartTime);
+      maxTime.setHours(23, 0, 0, 0);
+      if (newEndTime > maxTime) return false;
+    }
+
+    return true;
+  };
+
+  /**
+   * Handle bulk shift of current appointment and all items after it
+   */
+  const handleBulkShiftAfter = async (appointmentId: string, minutesShift: number) => {
+    const appointment = appointments.find(a => a.id === appointmentId);
+    if (!appointment) return;
+
+    if (!canBulkShiftAfter(appointmentId, minutesShift)) {
+      alert('Неможливо перемістити: деякі записи вийдуть за межі робочого часу (7:00 - 23:00)');
+      return;
+    }
+
+    pauseAutoGeneration();
+
+    const appointmentStartTime = parseISO(appointment.start_time);
+
+    // Get all appointments and breaks that start at or after this appointment's start time (including current)
+    const appointmentsAfter = appointments.filter(a => parseISO(a.start_time) >= appointmentStartTime);
+    const breaksAfter = breaks.filter(b => parseISO(b.start_time) >= appointmentStartTime);
+
+    // Update all appointments
+    for (const apt of appointmentsAfter) {
+      const currentStartTime = parseISO(apt.start_time);
+      const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
+      onUpdateAppointment(apt.id, { start_time: newStartTime.toISOString() });
+    }
+
+    // Update all breaks
+    for (const brk of breaksAfter) {
+      const currentStartTime = parseISO(brk.start_time);
+      const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
+      await onUpdateBreak(brk.id, { start_time: newStartTime.toISOString() });
+    }
+
+    resumeAutoGeneration();
+  };
+
+  /**
+   * Handle bulk shift of current appointment and all items before it
+   */
+  const handleBulkShiftBefore = async (appointmentId: string, minutesShift: number) => {
+    const appointment = appointments.find(a => a.id === appointmentId);
+    if (!appointment) return;
+
+    if (!canBulkShiftBefore(appointmentId, minutesShift)) {
+      alert('Неможливо перемістити: деякі записи вийдуть за межі робочого часу (7:00 - 23:00)');
+      return;
+    }
+
+    pauseAutoGeneration();
+
+    const appointmentEndTime = parseISO(appointment.end_time);
+
+    // Get all appointments and breaks that end at or before this appointment's end time (including current)
+    const appointmentsBefore = appointments.filter(a => parseISO(a.end_time) <= appointmentEndTime);
+    const breaksBefore = breaks.filter(b => parseISO(b.end_time) <= appointmentEndTime);
+
+    // Update all appointments
+    for (const apt of appointmentsBefore) {
+      const currentStartTime = parseISO(apt.start_time);
+      const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
+      onUpdateAppointment(apt.id, { start_time: newStartTime.toISOString() });
+    }
+
+    // Update all breaks
+    for (const brk of breaksBefore) {
+      const currentStartTime = parseISO(brk.start_time);
+      const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
+      await onUpdateBreak(brk.id, { start_time: newStartTime.toISOString() });
+    }
+
+    resumeAutoGeneration();
   };
 
   /**
@@ -290,7 +561,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
       }
     };
 
-    const handleEnd = (e: MouseEvent | TouchEvent) => {
+    const handleEnd = async (e: MouseEvent | TouchEvent) => {
       const clientY =
         e instanceof MouseEvent ? e.clientY : e.changedTouches[0]?.clientY;
 
@@ -308,23 +579,37 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               : breaks.find(b => b.id === dragItem.id);
             
             if (currentItem) {
-              // Check for overlaps
-              if (hasOverlap(dragItem.id, newTime, currentItem.duration_minutes)) {
-                alert('Неможливо перемістити: новий час перетинається з іншим записом або перервою');
-                setDragItem(null);
-                return;
-              }
-              
               const newTimeISO = newTime.toISOString();
+              
               if (dragItem.type === 'appointment') {
+                // Check for overlaps with other appointments only
+                if (appointmentOverlapsAppointment(dragItem.id, newTime, currentItem.duration_minutes)) {
+                  alert('Неможливо перемістити: запис перетинається з іншим записом');
+                  setDragItem(null);
+                  return;
+                }
+                
+                // Handle any overlapping breaks
+                await handleBreakOverlaps(dragItem.id, newTime, currentItem.duration_minutes);
+                
+                // Update the appointment
                 onUpdateAppointment(dragItem.id, { start_time: newTimeISO });
               } else {
+                // Check for overlaps with anything for breaks
+                if (breakOverlapsAny(dragItem.id, newTime, currentItem.duration_minutes)) {
+                  alert('Неможливо перемістити: перерва перетинається з іншим записом або перервою');
+                  setDragItem(null);
+                  return;
+                }
+                
                 onUpdateBreak(dragItem.id, { start_time: newTimeISO });
               }
             }
           }
         }
         setDragItem(null);
+        // Resume auto-generation - it will be called by update handlers
+        resumeAutoGeneration();
       }
     };
 
@@ -690,6 +975,10 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 }
                 onUpdateStartTime={handleUpdateAppointmentStartTime}
                 canShiftTime={canShiftTime}
+                onBulkShiftAfter={handleBulkShiftAfter}
+                onBulkShiftBefore={handleBulkShiftBefore}
+                canBulkShiftAfter={canBulkShiftAfter}
+                canBulkShiftBefore={canBulkShiftBefore}
                 pixelsPerHour={pixelsPerHour}
                 scrollContainerId="schedule-container"
               />
@@ -716,6 +1005,19 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               />
             </div>
           ))}
+
+          {/* Current time indicator */}
+          {currentTimePosition !== null && (
+            <div
+              className="absolute w-full pointer-events-none z-30"
+              style={{ top: `${currentTimePosition}px` }}
+            >
+              <div className="w-full h-0.5" style={{ backgroundColor: '#1e293b' }} />
+              <div className="absolute left-0 top-0 transform -translate-y-1/2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#1e293b' }} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

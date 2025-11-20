@@ -11,6 +11,10 @@ interface AppointmentBlockProps {
   onDragStart: (id: string, startTime: string, clientY: number) => void;
   onUpdateStartTime: (id: string, minutesShift: number) => void;
   canShiftTime: (id: string, minutesShift: number) => boolean;
+  onBulkShiftAfter: (id: string, minutesShift: number) => void;
+  onBulkShiftBefore: (id: string, minutesShift: number) => void;
+  canBulkShiftAfter: (id: string, minutesShift: number) => boolean;
+  canBulkShiftBefore: (id: string, minutesShift: number) => boolean;
   pixelsPerHour?: number;
   scrollContainerId?: string;
 }
@@ -26,6 +30,10 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
   onDragStart,
   onUpdateStartTime,
   canShiftTime,
+  onBulkShiftAfter,
+  onBulkShiftBefore,
+  canBulkShiftAfter,
+  canBulkShiftBefore,
   pixelsPerHour = 80,
   scrollContainerId,
 }) => {
@@ -46,34 +54,35 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
     const updateMenuPosition = () => {
       if (buttonRef.current) {
         const rect = buttonRef.current.getBoundingClientRect();
-        const container = scrollContainerId ? document.getElementById(scrollContainerId) : null;
-        const containerRect = container?.getBoundingClientRect();
-        const menuWidth = 160;
+        const menuWidth = 280;
         const menuHeight = 300;
         
+        // Use button's position directly from viewport
         let top = rect.bottom + 4;
         let left = rect.right - menuWidth;
         
-        // Constrain to container bounds if container exists
-        if (containerRect) {
-          const maxBottom = containerRect.bottom;
-          
-          // If menu would overflow bottom of container, position above button
-          if (top + menuHeight > maxBottom) {
-            top = rect.top - menuHeight - 4;
-          }
-          
-          // Don't clamp to container top - let menu follow button even above container
-        } else {
-          // Fallback to viewport bounds
-          if (top + menuHeight > window.innerHeight) {
-            top = rect.top - menuHeight - 4;
-          }
+        // Check if menu would overflow bottom of viewport
+        if (top + menuHeight > window.innerHeight) {
+          // Position above button instead
+          top = rect.top - menuHeight - 4;
         }
         
+        // Check if menu would overflow top of viewport when positioned above
+        if (top < 0) {
+          // If it doesn't fit above either, position it at the button level
+          top = rect.top;
+        }
+        
+        // Ensure menu doesn't overflow left edge
         if (left < 8) {
           left = 8;
         }
+        
+        // Ensure menu doesn't overflow right edge
+        if (left + menuWidth > window.innerWidth - 8) {
+          left = window.innerWidth - menuWidth - 8;
+        }
+        
         setMenuPosition({ top, left });
       }
     };
@@ -105,7 +114,7 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
 
   return (
     <div
-      className="appointment-block absolute left-0 right-0 bg-primary-500 text-white rounded-md shadow-md select-none mx-1 md:cursor-move"
+      className="appointment-block absolute left-0 right-0 bg-primary-500 text-white rounded-md shadow-lg border-2 border-primary-700 select-none mx-1 md:cursor-move"
       style={{
         height: `${heightPixels}px`,
         minHeight: '40px',
@@ -119,53 +128,101 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
         {isMenuOpen && createPortal(
           <div 
             ref={menuRef}
-            className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-1 text-gray-800 z-[9999] w-40"
+            className="fixed bg-white rounded-xl shadow-2xl border border-gray-200 text-gray-800 z-[9999] overflow-hidden"
             style={{
               top: `${menuPosition.top}px`,
               left: `${menuPosition.left}px`,
+              width: '320px',
             }}
           >
-              <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-100">Перемістити</div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUpdateStartTime(appointment.id, -10);
-                }}
-                disabled={!canShiftTime(appointment.id, -10)}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
-              >
-                На 10 хв раніше
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUpdateStartTime(appointment.id, -5);
-                }}
-                disabled={!canShiftTime(appointment.id, -5)}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
-              >
-                На 5 хв раніше
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUpdateStartTime(appointment.id, 5);
-                }}
-                disabled={!canShiftTime(appointment.id, 5)}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
-              >
-                На 5 хв пізніше
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUpdateStartTime(appointment.id, 10);
-                }}
-                disabled={!canShiftTime(appointment.id, 10)}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
-              >
-                На 10 хв пізніше
-              </button>
+              <div className="grid grid-cols-2 divide-x divide-gray-200">
+                <div>
+                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-100">Перемістити з сувом</div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onBulkShiftBefore(appointment.id, -10);
+                    }}
+                    disabled={!canBulkShiftBefore(appointment.id, -10)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
+                  >
+                    На 10 хв раніше
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onBulkShiftBefore(appointment.id, -5);
+                    }}
+                    disabled={!canBulkShiftBefore(appointment.id, -5)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
+                  >
+                    На 5 хв раніше
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onBulkShiftAfter(appointment.id, 5);
+                    }}
+                    disabled={!canBulkShiftAfter(appointment.id, 5)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
+                  >
+                    На 5 хв пізніше
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onBulkShiftAfter(appointment.id, 10);
+                    }}
+                    disabled={!canBulkShiftAfter(appointment.id, 10)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
+                  >
+                    На 10 хв пізніше
+                  </button>
+                </div>
+                <div>
+                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-100">Сам</div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateStartTime(appointment.id, -10);
+                    }}
+                    disabled={!canShiftTime(appointment.id, -10)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
+                  >
+                    На 10 хв раніше
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateStartTime(appointment.id, -5);
+                    }}
+                    disabled={!canShiftTime(appointment.id, -5)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
+                  >
+                    На 5 хв раніше
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateStartTime(appointment.id, 5);
+                    }}
+                    disabled={!canShiftTime(appointment.id, 5)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
+                  >
+                    На 5 хв пізніше
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateStartTime(appointment.id, 10);
+                    }}
+                    disabled={!canShiftTime(appointment.id, 10)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-white"
+                  >
+                    На 10 хв пізніше
+                  </button>
+                </div>
+              </div>
               <div className="border-t border-gray-100 my-1"></div>
               <button
                 onClick={(e) => {
@@ -222,16 +279,33 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
               e.stopPropagation();
               if (!isMenuOpen && buttonRef.current) {
                 const rect = buttonRef.current.getBoundingClientRect();
-                const menuWidth = 160;
+                const menuWidth = 280;
                 const menuHeight = 300;
+                
                 let top = rect.bottom + 4;
                 let left = rect.right - menuWidth;
+                
+                // Check if menu would overflow bottom of viewport
                 if (top + menuHeight > window.innerHeight) {
+                  // Position above button instead
                   top = rect.top - menuHeight - 4;
                 }
+                
+                // Check if menu would overflow top of viewport
+                if (top < 0) {
+                  top = rect.top;
+                }
+                
+                // Ensure menu doesn't overflow left edge
                 if (left < 8) {
                   left = 8;
                 }
+                
+                // Ensure menu doesn't overflow right edge
+                if (left + menuWidth > window.innerWidth - 8) {
+                  left = window.innerWidth - menuWidth - 8;
+                }
+                
                 setMenuPosition({ top, left });
               }
               setIsMenuOpen(!isMenuOpen);

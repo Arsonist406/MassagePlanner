@@ -2,14 +2,8 @@ import React, { useState } from 'react';
 import type { AppointmentFormData } from '../types';
 import { format } from 'date-fns';
 
-interface AppointmentFormSubmitData {
-  appointment: AppointmentFormData;
-  addBreak: boolean;
-  breakDuration: number; // -1 means "until next appointment"
-}
-
 interface AppointmentFormProps {
-  onSubmit: (data: AppointmentFormSubmitData) => void;
+  onSubmit: (appointment: AppointmentFormData) => void;
   onCancel?: () => void;
   initialData?: Partial<AppointmentFormData>;
   currentDate: Date;
@@ -52,8 +46,6 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
 
   const [hourInput, setHourInput] = useState(initialTime.hour);
   const [minuteInput, setMinuteInput] = useState(initialTime.minute);
-  const [addBreak, setAddBreak] = useState(false);
-  const [breakDuration, setBreakDuration] = useState(10);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,11 +70,7 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
         start_time: dateTime.toISOString(),
       };
       
-      onSubmit({
-        appointment: updatedFormData,
-        addBreak,
-        breakDuration,
-      });
+      onSubmit(updatedFormData);
     } catch (error) {
       alert('Невірний формат часу');
     }
@@ -224,35 +212,6 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
           <option value={45}>Короткий, 30~45 хв</option>
           <option value={75}>Довгий, 60~75 хв</option>
         </select>
-      </div>
-
-      {/* Break After Massage */}
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={addBreak}
-            onChange={(e) => setAddBreak(e.target.checked)}
-            className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
-          />
-          <span className="text-sm font-medium text-gray-700">
-            Додати перерву після масажу
-          </span>
-        </label>
-        
-        {addBreak && (
-          <select
-            value={breakDuration}
-            onChange={(e) => setBreakDuration(Number(e.target.value))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          >
-            <option value={5}>5 хвилин</option>
-            <option value={10}>10 хвилин</option>
-            <option value={15}>15 хвилин</option>
-            <option value={20}>20 хвилин</option>
-            <option value={-1}>До наступного масажу</option>
-          </select>
-        )}
       </div>
 
       {/* Action Buttons */}

@@ -24,6 +24,7 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
   const miniMapRef = useRef<HTMLDivElement>(null);
   const [viewportLeft, setViewportLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(100);
+  const [currentTimePosition, setCurrentTimePosition] = useState<number | null>(null);
 
   const totalHours = endHour - startHour;
   const miniMapWidth = 100; // Percentage width
@@ -79,6 +80,24 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
   };
 
   /**
+   * Update current time position
+   */
+  const updateCurrentTime = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Only show if current time is within schedule hours
+    if (currentHour >= startHour && currentHour < endHour) {
+      const hoursFromStart = currentHour - startHour + currentMinute / 60;
+      const position = (hoursFromStart / totalHours) * 100;
+      setCurrentTimePosition(position);
+    } else {
+      setCurrentTimePosition(null);
+    }
+  };
+
+  /**
    * Listen to scroll events
    */
   useEffect(() => {
@@ -95,6 +114,16 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleContainerId]);
+
+  /**
+   * Update current time position periodically
+   */
+  useEffect(() => {
+    updateCurrentTime();
+    const interval = setInterval(updateCurrentTime, 60000); // Update every minute
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startHour, endHour, totalHours]);
 
   /**
    * Render hour markers
@@ -174,9 +203,22 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
             );
           })}
 
+          {/* Current time indicator */}
+          {currentTimePosition !== null && (
+            <div
+              className="absolute top-0 bottom-0 pointer-events-none z-20"
+              style={{ left: `${currentTimePosition}%` }}
+            >
+              <div className="h-full w-0.5" style={{ backgroundColor: '#1e293b' }} />
+              <div className="absolute left-0 top-0 transform -translate-x-1/2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1e293b' }} />
+              </div>
+            </div>
+          )}
+
           {/* Viewport indicator */}
           <div
-            className="absolute top-0 bottom-0 bg-blue-500/20 border-2 border-blue-500 rounded pointer-events-none"
+            className="absolute top-0 bottom-0 bg-green-600/60 border-2 border-green-600 rounded pointer-events-none"
             style={{
               left: `${viewportLeft}%`,
               width: `${viewportWidth}%`,
@@ -194,6 +236,14 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 bg-amber-400 border border-amber-500 rounded flex-shrink-0" />
           <span>Перерви</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-0.5 flex-shrink-0" style={{ backgroundColor: '#1e293b' }} />
+          <span>Поточний час</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 bg-green-600/60 border-2 border-green-600 rounded flex-shrink-0" />
+          <span>Видимість екрану</span>
         </div>
       </div>
     </div>
