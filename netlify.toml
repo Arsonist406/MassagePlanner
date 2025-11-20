@@ -6,6 +6,16 @@
   NODE_VERSION = "18"
   SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_URL"
 
+# Netlify Functions configuration
+[functions]
+  directory = "netlify/functions"
+
+# Scheduled function to keep Supabase active (prevents 7-day auto-pause)
+# Runs daily at 3:00 AM UTC
+[[scheduled]]
+  name = "supabase-keep-alive"
+  cron = "0 3 * * *"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
