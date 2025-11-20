@@ -41,7 +41,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   resumeAutoGeneration,
   startHour = 7,
   endHour = 23,
-  pixelsPerHour = 560,
+  pixelsPerHour = 500,
 }) => {
   const [dragItem, setDragItem] = useState<{
     id: string;

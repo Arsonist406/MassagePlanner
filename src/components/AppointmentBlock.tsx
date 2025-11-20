@@ -249,10 +249,10 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
           )}
 
         {/* Content */}
-        <div className="flex items-center gap-2 w-full justify-between">
-          <div className="flex flex-col gap-1 flex-1">
+        <div className="flex items-start gap-2 w-full justify-between">
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
-              <div className="font-medium text-xl sm:text-2xl">
+              <div className="font-medium text-xl sm:text-2xl break-all">
                 {appointment.client_name}
               </div>
               <div className="flex items-center gap-2">
@@ -266,7 +266,7 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
               </div>
             </div>
             {appointment.notes && (
-              <div className="text-lg opacity-90 line-clamp-8 break-all overflow-hidden">
+              <div className="text-base sm:text-lg opacity-90 line-clamp-8 break-all overflow-hidden">
                 {appointment.notes}
               </div>
             )}
