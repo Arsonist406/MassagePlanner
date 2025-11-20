@@ -186,7 +186,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
    * Shrink or delete breaks that overlap with an appointment's new position
    */
   const handleBreakOverlaps = async (
-    appointmentId: string,
+    _appointmentId: string,
     newStartTime: Date,
     durationMinutes: number
   ) => {
