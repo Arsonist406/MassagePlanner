@@ -137,7 +137,7 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
           >
               <div className="grid grid-cols-2 divide-x divide-gray-200">
                 <div>
-                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-100">Перемістити з сувом</div>
+                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-100">Зсунути</div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -180,7 +180,7 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
                   </button>
                 </div>
                 <div>
-                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-100">Сам</div>
+                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-100">Перемістити</div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -266,7 +266,7 @@ export const AppointmentBlock: React.FC<AppointmentBlockProps> = ({
               </div>
             </div>
             {appointment.notes && (
-              <div className="text-lg opacity-90 line-clamp-8">
+              <div className="text-lg opacity-90 line-clamp-8 break-all overflow-hidden">
                 {appointment.notes}
               </div>
             )}

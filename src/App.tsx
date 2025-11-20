@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAppointments } from './hooks/useAppointments';
 import { AppointmentForm } from './components/AppointmentForm';
+import { AppointmentEditForm } from './components/AppointmentEditForm';
 import { ScheduleView } from './components/ScheduleView';
 import { ScheduleMiniMapHorizontal } from './components/ScheduleMiniMapHorizontal';
 import { startOfDay, isSameDay, parseISO } from 'date-fns';
@@ -132,21 +133,24 @@ function App() {
           {/* Form Section */}
           {showForm && (
             <div className="lg:col-span-1">
-              <AppointmentForm
-                onSubmit={handleFormSubmit}
-                onCancel={handleCancelForm}
-                currentDate={selectedDate}
-                initialData={
-                  editingAppointment
-                    ? {
-                        client_name: editingAppointment.client_name,
-                        start_time: editingAppointment.start_time,
-                        duration_minutes: editingAppointment.duration_minutes,
-                        notes: editingAppointment.notes,
-                      }
-                    : undefined
-                }
-              />
+              {editingAppointment ? (
+                <AppointmentEditForm
+                  onSubmit={handleFormSubmit}
+                  onCancel={handleCancelForm}
+                  initialData={{
+                    client_name: editingAppointment.client_name,
+                    start_time: editingAppointment.start_time,
+                    duration_minutes: editingAppointment.duration_minutes,
+                    notes: editingAppointment.notes,
+                  }}
+                />
+              ) : (
+                <AppointmentForm
+                  onSubmit={handleFormSubmit}
+                  onCancel={handleCancelForm}
+                  currentDate={selectedDate}
+                />
+              )}
             </div>
           )}
 

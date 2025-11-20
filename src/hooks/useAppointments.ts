@@ -171,8 +171,8 @@ export const useAppointments = () => {
   }, [appointments, breaks]);
 
   /**
-   * Auto-generate breaks for gaps <= 25 minutes between appointments
-   * Stretches existing breaks or creates new ones, removes breaks if gap > 25 minutes
+   * Auto-generate breaks for gaps <= 30 minutes between appointments
+   * Stretches existing breaks or creates new ones, removes breaks if gap > 30 minutes
    * Called after appointments are created or updated
    */
   const autoGenerateBreaks = useCallback(async () => {
@@ -205,7 +205,7 @@ export const useAppointments = () => {
         // Calculate gap in minutes
         const gapMinutes = (nextStart.getTime() - currentEnd.getTime()) / (1000 * 60);
 
-        if (gapMinutes > 0 && gapMinutes <= 25) {
+        if (gapMinutes > 0 && gapMinutes <= 30) {
           // Mark this range as legitimate
           legitimateBreakRanges.add(`${currentEnd.getTime()}-${nextStart.getTime()}`);
 
@@ -213,19 +213,24 @@ export const useAppointments = () => {
           const existingBreak = breaks.find(brk => {
             const brkStart = new Date(brk.start_time);
             const brkEnd = new Date(brk.end_time);
-            // Break exists if it overlaps with the gap
-            return brkStart < nextStart && brkEnd > currentEnd;
+            // Break exists if it overlaps with or touches the gap
+            return (brkStart >= currentEnd && brkStart < nextStart) || 
+                   (brkEnd > currentEnd && brkEnd <= nextStart) ||
+                   (brkStart <= currentEnd && brkEnd >= nextStart);
           });
 
           if (existingBreak) {
             // Update existing break to match the full gap
             const targetDuration = Math.floor(gapMinutes);
-            if (existingBreak.start_time !== currentEnd.toISOString() || 
+            const targetStart = currentEnd.toISOString();
+            
+            // Always update if start time or duration doesn't match the full gap
+            if (existingBreak.start_time !== targetStart || 
                 existingBreak.duration_minutes !== targetDuration) {
               breaksToUpdate.push({
                 id: existingBreak.id,
                 updates: {
-                  start_time: currentEnd.toISOString(),
+                  start_time: targetStart,
                   duration_minutes: targetDuration,
                 }
               });
@@ -255,8 +260,8 @@ export const useAppointments = () => {
           const nextStart = new Date(sortedAppointments[i + 1].start_time);
           const gapMinutes = (nextStart.getTime() - currentEnd.getTime()) / (1000 * 60);
           
-          // Break is legitimate if it's between consecutive appointments with gap <= 25
-          if (gapMinutes > 0 && gapMinutes <= 25 && 
+          // Break is legitimate if it's between consecutive appointments with gap <= 30
+          if (gapMinutes > 0 && gapMinutes <= 30 && 
               brkStart >= currentEnd && brkEnd <= nextStart) {
             isLegitimate = true;
             break;

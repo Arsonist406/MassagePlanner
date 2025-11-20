@@ -100,7 +100,7 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
       className="bg-white rounded-lg shadow-md p-4 sm:p-6 space-y-4"
     >
       <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">
-        {initialData ? 'Змінити запис' : 'Новий запис'}
+        Новий запис
       </h2>
 
       {/* Client Name */}
@@ -220,7 +220,7 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
           type="submit"
           className="flex-1 bg-primary-600 text-white py-2 px-4 rounded-md hover:bg-primary-700 transition-colors font-medium"
         >
-          {initialData ? 'Змінити' : 'Створити'} Запис
+          Створити Запис
         </button>
         {onCancel && (
           <button
