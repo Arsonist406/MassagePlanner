@@ -25,6 +25,7 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
   const [viewportLeft, setViewportLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(100);
   const [currentTimePosition, setCurrentTimePosition] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const totalHours = endHour - startHour;
   const miniMapWidth = 100; // Percentage width
@@ -62,21 +63,84 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
   };
 
   /**
-   * Handle click on mini-map to scroll to that time
+   * Scroll to position with the viewport centered at clickPercent
    */
-  const handleMiniMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickPercent = clickX / rect.width;
-    
+  const scrollToPercent = (clickPercent: number, smooth: boolean = true) => {
     const scheduleContainer = document.getElementById(scheduleContainerId);
     if (!scheduleContainer) return;
 
-    const targetScrollTop = clickPercent * scheduleContainer.scrollHeight;
+    // Calculate the target scroll position so the viewport is centered at the click position
+    const viewportHeightPercent = (scheduleContainer.clientHeight / scheduleContainer.scrollHeight);
+    const targetScrollPercent = clickPercent - (viewportHeightPercent / 2);
+    const clampedScrollPercent = Math.max(0, Math.min(1 - viewportHeightPercent, targetScrollPercent));
+    
+    const targetScrollTop = clampedScrollPercent * scheduleContainer.scrollHeight;
     scheduleContainer.scrollTo({
       top: targetScrollTop,
-      behavior: 'smooth'
+      behavior: smooth ? 'smooth' : 'auto'
     });
+  };
+
+  /**
+   * Handle mouse down on mini-map to start dragging
+   */
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickPercent = clickX / rect.width;
+    scrollToPercent(clickPercent, false);
+  };
+
+  /**
+   * Handle mouse move for dragging
+   */
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickPercent = Math.max(0, Math.min(1, clickX / rect.width));
+    scrollToPercent(clickPercent, false);
+  };
+
+  /**
+   * Handle mouse up to stop dragging
+   */
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  /**
+   * Handle touch start for mobile
+   */
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touch = e.touches[0];
+    const touchX = touch.clientX - rect.left;
+    const touchPercent = touchX / rect.width;
+    scrollToPercent(touchPercent, false);
+  };
+
+  /**
+   * Handle touch move for mobile dragging
+   */
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touch = e.touches[0];
+    const touchX = touch.clientX - rect.left;
+    const touchPercent = Math.max(0, Math.min(1, touchX / rect.width));
+    scrollToPercent(touchPercent, false);
+  };
+
+  /**
+   * Handle touch end to stop dragging
+   */
+  const handleTouchEnd = () => {
+    setIsDragging(false);
   };
 
   /**
@@ -126,6 +190,24 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
   }, [startHour, endHour, totalHours]);
 
   /**
+   * Add global mouse/touch up listeners when dragging
+   */
+  useEffect(() => {
+    if (isDragging) {
+      const handleGlobalMouseUp = () => setIsDragging(false);
+      const handleGlobalTouchEnd = () => setIsDragging(false);
+      
+      window.addEventListener('mouseup', handleGlobalMouseUp);
+      window.addEventListener('touchend', handleGlobalTouchEnd);
+      
+      return () => {
+        window.removeEventListener('mouseup', handleGlobalMouseUp);
+        window.removeEventListener('touchend', handleGlobalTouchEnd);
+      };
+    }
+  }, [isDragging]);
+
+  /**
    * Render hour markers
    */
   const renderHourMarkers = () => {
@@ -156,9 +238,14 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
       {/* Mini-map container */}
       <div
         ref={miniMapRef}
-        className="relative bg-gray-50 rounded border border-gray-300 cursor-pointer hover:border-gray-400 transition-colors"
+        className="relative bg-gray-50 rounded border border-gray-300 cursor-pointer hover:border-gray-400 transition-colors select-none"
         style={{ height: '50px', width: '100%' }}
-        onClick={handleMiniMapClick}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Hour markers */}
         {renderHourMarkers()}

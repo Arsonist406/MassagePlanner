@@ -114,12 +114,27 @@ function App() {
           <h1 className="text-xl font-bold text-gray-900">
             Планер масажів
           </h1>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="px-5 py-2.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors font-medium text-base whitespace-nowrap"
-          >
-            {showForm ? 'Сховати' : '+ Запис'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const event = new CustomEvent('openCalendar');
+                window.dispatchEvent(event);
+              }}
+              className="px-5 py-2.5 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center font-medium text-base"
+              title="Відкрити календар"
+              style={{ minWidth: '50px' }}
+            >
+              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="px-5 py-2.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors font-medium text-base whitespace-nowrap"
+            >
+              {showForm ? 'Сховати' : '+ Запис'}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -131,6 +146,19 @@ function App() {
             Планер масажів
           </h1>
           <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => {
+                const event = new CustomEvent('openCalendar');
+                window.dispatchEvent(event);
+              }}
+              className="px-5 py-3 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center font-medium text-base sm:text-lg"
+              title="Відкрити календар"
+              style={{ minWidth: '60px' }}
+            >
+              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
             <button
               onClick={() => setShowForm(!showForm)}
               className="px-5 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors font-medium text-base sm:text-lg whitespace-nowrap"

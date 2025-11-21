@@ -802,11 +802,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
 
   const [calendarMonth, setCalendarMonth] = useState(selectedDate);
 
-  const toggleCalendar = () => {
-    setShowCalendar(!showCalendar);
-    setCalendarMonth(selectedDate);
-  };
-
   const handleCalendarDateSelect = (date: Date) => {
     onDateChange(startOfDay(date));
     setShowCalendar(false);
@@ -819,6 +814,16 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
     return eachDayOfInterval({ start: startDate, end: endDate });
   };
+
+  // Listen for calendar open event from header
+  useEffect(() => {
+    const handleOpenCalendar = () => {
+      setShowCalendar(true);
+      setCalendarMonth(selectedDate);
+    };
+    window.addEventListener('openCalendar', handleOpenCalendar);
+    return () => window.removeEventListener('openCalendar', handleOpenCalendar);
+  }, [selectedDate]);
 
   // Close calendar when clicking outside
   useEffect(() => {
@@ -848,11 +853,21 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
       {/* Main schedule */}
       <div className="flex-1 bg-white rounded-lg shadow-md overflow-hidden">
         <div className="px-3 py-3 sm:px-4 sm:py-3 bg-gray-100 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
               {getDateHeader()}
             </h2>
             <div className="flex items-center gap-2 relative">
+              {/* Today button */}
+              {!isToday(selectedDate) && (
+                <button
+                  onClick={goToToday}
+                  className="px-3 py-2 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 transition-colors"
+                >
+                  Сьогодні
+                </button>
+              )}
+              
               {/* Navigation buttons */}
               <button
                 onClick={goToPreviousDay}
@@ -863,22 +878,10 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              
-              {/* Date picker */}
-              <button
-                onClick={toggleCalendar}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
-                title="Відкрити календар"
-              >
-                <span>{format(selectedDate, 'dd/MM/yyyy')}</span>
-                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </button>
 
               {/* Calendar dropdown */}
               {showCalendar && (
-                <div className="absolute top-full left-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg p-4 z-50 calendar-container" style={{ width: '280px' }}>
+                <div className="fixed bg-white border border-gray-300 rounded-lg shadow-lg p-4 z-50 calendar-container" style={{ width: '280px', top: '70px', left: '50%', transform: 'translateX(-50%)' }}>
                   {/* Calendar header */}
                   <div className="flex items-center justify-between mb-3">
                     <button
@@ -946,16 +949,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
-              
-              {/* Today button */}
-              {!isToday(selectedDate) && (
-                <button
-                  onClick={goToToday}
-                  className="ml-2 px-3 py-2 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 transition-colors"
-                >
-                  Сьогодні
-                </button>
-              )}
             </div>
           </div>
         </div>
