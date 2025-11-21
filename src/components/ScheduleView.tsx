@@ -771,41 +771,88 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   /**
+   * Get all times where labels should be shown (hourly, boundaries, and 5-min in gaps)
+   */
+  const getVisibleLabelTimes = (): Set<number> => {
+    const visibleTimes = new Set<number>();
+    const blockBoundaries = getBlockBoundaryTimes();
+    
+    // Add all hourly markers
+    for (let hour = startHour; hour <= endHour; hour++) {
+      visibleTimes.add((hour - startHour) * 60);
+    }
+    
+    // Add all block boundaries
+    blockBoundaries.forEach(time => visibleTimes.add(time));
+    
+    // Add 5-minute intervals in gaps (where there are no blocks)
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let i = 1; i < 12; i++) {
+        const minutes = i * 5;
+        const minutesFromStart = (hour - startHour) * 60 + minutes;
+        
+        // Skip if it's an hourly marker (already added)
+        if (minutes === 0) continue;
+        
+        // Skip if it's a block boundary (already added)
+        if (blockBoundaries.has(minutesFromStart)) continue;
+        
+        // Skip if this time is inside a block
+        if (isTimeInBlock(minutesFromStart)) continue;
+        
+        visibleTimes.add(minutesFromStart);
+      }
+    }
+    
+    return visibleTimes;
+  };
+
+  /**
    * Render hour grid lines with 15-minute and 5-minute subdivisions
+   * Only show lines where time labels are visible
    */
   const renderGridLines = () => {
     const lines = [];
+    const visibleTimes = getVisibleLabelTimes();
     
     for (let hour = startHour; hour <= endHour; hour++) {
-      // Hour line (thicker, darker)
-      lines.push(
-        <div
-          key={`hour-${hour}`}
-          className="absolute right-0 border-t-2 border-gray-400"
-          style={{ 
-            top: `${(hour - startHour) * pixelsPerHour}px`,
-            left: '0px'
-          }}
-        />
-      );
+      const minutesFromStart = (hour - startHour) * 60;
+      
+      // Hour line (thicker, darker) - only if time label is visible
+      if (visibleTimes.has(minutesFromStart)) {
+        lines.push(
+          <div
+            key={`hour-${hour}`}
+            className="absolute right-0 border-t-2 border-gray-400"
+            style={{ 
+              top: `${(hour - startHour) * pixelsPerHour}px`,
+              left: '0px'
+            }}
+          />
+        );
+      }
       
       // Don't add subdivisions after the last hour
       if (hour < endHour) {
         // 15-minute subdivisions (visible, medium thickness)
         for (let quarter = 1; quarter < 4; quarter++) {
           const minutes = quarter * 15;
-          lines.push(
-            <div
-              key={`15min-${hour}-${minutes}`}
-              className="absolute right-0 border-t"
-              style={{ 
-                top: `${(hour - startHour) * pixelsPerHour + (minutes / 60) * pixelsPerHour}px`,
-                left: '0px',
-                borderColor: '#9ca3af',
-                borderWidth: '1.5px'
-              }}
-            />
-          );
+          const subdivisionMinutes = (hour - startHour) * 60 + minutes;
+          
+          if (visibleTimes.has(subdivisionMinutes)) {
+            lines.push(
+              <div
+                key={`15min-${hour}-${minutes}`}
+                className="absolute right-0 border-t"
+                style={{ 
+                  top: `${(hour - startHour) * pixelsPerHour + (minutes / 60) * pixelsPerHour}px`,
+                  left: '0px',
+                  borderColor: '#9ca3af',
+                  borderWidth: '1.5px'
+                }}
+              />
+            );
+          }
         }
         
         // 5-minute subdivisions (subtle but visible)
@@ -814,17 +861,21 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
           if (i % 3 === 0) continue;
           
           const minutes = i * 5;
-          lines.push(
-            <div
-              key={`5min-${hour}-${minutes}`}
-              className="absolute right-0 border-t"
-              style={{ 
-                top: `${(hour - startHour) * pixelsPerHour + (minutes / 60) * pixelsPerHour}px`,
-                left: '0px',
-                borderColor: '#d1d5db'
-              }}
-            />
-          );
+          const subdivisionMinutes = (hour - startHour) * 60 + minutes;
+          
+          if (visibleTimes.has(subdivisionMinutes)) {
+            lines.push(
+              <div
+                key={`5min-${hour}-${minutes}`}
+                className="absolute right-0 border-t"
+                style={{ 
+                  top: `${(hour - startHour) * pixelsPerHour + (minutes / 60) * pixelsPerHour}px`,
+                  left: '0px',
+                  borderColor: '#d1d5db'
+                }}
+              />
+            );
+          }
         }
       }
     }
