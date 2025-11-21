@@ -171,11 +171,16 @@ export const updateBreak = async (
   // Recalculate end_time if start_time or duration changed
   let endTime: string | undefined;
   if (updates.start_time || updates.duration_minutes) {
-    const { data: currentData } = await supabase
+    const { data: currentData, error: fetchError } = await supabase
       .from('breaks')
       .select('start_time, duration_minutes')
       .eq('id', id)
       .single();
+
+    if (fetchError) {
+      console.error('Error fetching break for update:', fetchError);
+      throw new Error(`Break with id ${id} not found or already deleted`);
+    }
 
     if (currentData) {
       const startTime = updates.start_time || (currentData as any).start_time;

@@ -183,63 +183,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   };
 
   /**
-   * Shrink or delete breaks that overlap with an appointment's new position
-   */
-  const handleBreakOverlaps = async (
-    _appointmentId: string,
-    newStartTime: Date,
-    durationMinutes: number
-  ) => {
-    const newEndTime = new Date(newStartTime.getTime() + durationMinutes * 60000);
-    
-    // Find all breaks that overlap with the new appointment position
-    const overlappingBreaks = breaks.filter(brk => {
-      const brkStart = parseISO(brk.start_time);
-      const brkEnd = parseISO(brk.end_time);
-      return newStartTime < brkEnd && newEndTime > brkStart;
-    });
-
-    // Process each overlapping break sequentially
-    for (const brk of overlappingBreaks) {
-      const brkStart = parseISO(brk.start_time);
-      const brkEnd = parseISO(brk.end_time);
-
-      // Check if appointment completely covers the break
-      if (newStartTime <= brkStart && newEndTime >= brkEnd) {
-        // Delete the break entirely
-        await Promise.resolve(onDeleteBreak(brk.id));
-      } else if (newStartTime > brkStart && newEndTime < brkEnd) {
-        // Appointment is in the middle of break - delete it (can't split)
-        await Promise.resolve(onDeleteBreak(brk.id));
-      } else if (newStartTime <= brkStart && newEndTime > brkStart) {
-        // Appointment overlaps the start of break - shrink from start
-        const newBreakStart = newEndTime;
-        const newBreakDuration = Math.floor((brkEnd.getTime() - newBreakStart.getTime()) / 60000);
-        
-        if (newBreakDuration >= 1) {
-          await Promise.resolve(onUpdateBreak(brk.id, {
-            start_time: newBreakStart.toISOString(),
-            duration_minutes: newBreakDuration
-          }));
-        } else {
-          await Promise.resolve(onDeleteBreak(brk.id));
-        }
-      } else if (newStartTime < brkEnd && newEndTime >= brkEnd) {
-        // Appointment overlaps the end of break - shrink from end
-        const newBreakDuration = Math.floor((newStartTime.getTime() - brkStart.getTime()) / 60000);
-        
-        if (newBreakDuration >= 1) {
-          await Promise.resolve(onUpdateBreak(brk.id, {
-            duration_minutes: newBreakDuration
-          }));
-        } else {
-          await Promise.resolve(onDeleteBreak(brk.id));
-        }
-      }
-    }
-  };
-
-  /**
    * Check if a time shift is valid
    */
   const canShiftTime = (
@@ -320,12 +263,19 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
    * Handle appointment start time update with constraints and overlap check
    */
   const handleUpdateAppointmentStartTime = async (id: string, minutesShift: number) => {
+    console.log('[Move] handleUpdateAppointmentStartTime called', { id, minutesShift });
     const appointment = appointments.find(a => a.id === id);
-    if (!appointment) return;
+    if (!appointment) {
+      console.log('[Move] Appointment not found');
+      return;
+    }
 
     const currentStartTime = parseISO(appointment.start_time);
     const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
     const newEndTime = new Date(newStartTime.getTime() + appointment.duration_minutes * 60000);
+    
+    console.log('[Move] Current time:', appointment.start_time);
+    console.log('[Move] New time:', newStartTime.toISOString());
 
     // Check if new start time is before 7:00
     const minTime = new Date(newStartTime);
@@ -350,18 +300,19 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
 
     // Pause auto-generation before making changes
+    console.log('[Move] Pausing auto-generation');
     pauseAutoGeneration();
     
     try {
-      // Update the appointment first
+      // Update the appointment - auto-generation will handle breaks
+      console.log('[Move] Updating appointment in database');
       await onUpdateAppointment(id, { start_time: newStartTime.toISOString() });
-      
-      // Handle any overlapping breaks (shrink or delete them)
-      await handleBreakOverlaps(id, newStartTime, appointment.duration_minutes);
+      console.log('[Move] Appointment updated successfully');
     } catch (err) {
-      console.error('Error updating appointment:', err);
+      console.error('[Move] Error updating appointment:', err);
     } finally {
-      // Resume auto-generation - this will trigger break regeneration
+      // Resume auto-generation - this will recalculate all breaks based on new appointment positions
+      console.log('[Move] Resuming auto-generation');
       resumeAutoGeneration();
     }
   };
@@ -546,7 +497,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
       // Get all touching items after this appointment (including current)
       const touchingItems = getTouchingItemsAfter(appointmentId);
 
-      // Update all items in reverse order (from farthest to nearest)
+      // Update all items (both appointments and breaks) in reverse order
       for (const item of [...touchingItems].reverse()) {
         const currentStartTime = parseISO(item.start_time);
         const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
@@ -554,14 +505,13 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         if ('client_name' in item) {
           // It's an appointment
           await onUpdateAppointment(item.id, { start_time: newStartTime.toISOString() });
-          
-          // Handle any overlapping breaks after moving the appointment
-          await handleBreakOverlaps(item.id, newStartTime, item.duration_minutes);
         } else {
-          // It's a break
+          // It's a break - move it along with appointments
           await onUpdateBreak(item.id, { start_time: newStartTime.toISOString() });
         }
       }
+      
+      // No need for auto-generation since we moved everything together
     } catch (err) {
       console.error('Error in bulk shift after:', err);
     } finally {
@@ -587,7 +537,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
       // Get all touching items before this appointment (including current)
       const touchingItems = getTouchingItemsBefore(appointmentId);
 
-      // Update all items in reverse order (from farthest to nearest)
+      // Update all items (both appointments and breaks) in reverse order
       for (const item of [...touchingItems].reverse()) {
         const currentStartTime = parseISO(item.start_time);
         const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
@@ -595,14 +545,13 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         if ('client_name' in item) {
           // It's an appointment
           await onUpdateAppointment(item.id, { start_time: newStartTime.toISOString() });
-          
-          // Handle any overlapping breaks after moving the appointment
-          await handleBreakOverlaps(item.id, newStartTime, item.duration_minutes);
         } else {
-          // It's a break
+          // It's a break - move it along with appointments
           await onUpdateBreak(item.id, { start_time: newStartTime.toISOString() });
         }
       }
+      
+      // No need for auto-generation since we moved everything together
     } catch (err) {
       console.error('Error in bulk shift before:', err);
     } finally {
@@ -662,15 +611,12 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 pauseAutoGeneration();
                 
                 try {
-                  // Update the appointment first
+                  // Update the appointment - auto-generation will handle breaks
                   await onUpdateAppointment(dragItem.id, { start_time: newTimeISO });
-                  
-                  // Handle any overlapping breaks
-                  await handleBreakOverlaps(dragItem.id, newTime, currentItem.duration_minutes);
                 } catch (err) {
-                  console.error('Error handling break overlaps:', err);
+                  console.error('Error updating appointment:', err);
                 } finally {
-                  // Resume auto-generation after all updates complete
+                  // Resume auto-generation - this will recalculate all breaks
                   resumeAutoGeneration();
                 }
               } else {

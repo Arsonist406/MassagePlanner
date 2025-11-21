@@ -20,8 +20,11 @@ export const useAppointments = () => {
   const [breaks, setBreaks] = useState<Break[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [forceRefresh, setForceRefresh] = useState(0);
   const pauseCounterRef = useRef(0);
   const autoGenerationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const appointmentsRef = useRef<Appointment[]>([]);
+  const breaksRef = useRef<Break[]>([]);
 
   /**
    * Load all appointments and breaks from Supabase
@@ -43,6 +46,15 @@ export const useAppointments = () => {
       setIsLoading(false);
     }
   }, []);
+
+  // Update refs when state changes
+  useEffect(() => {
+    appointmentsRef.current = appointments;
+  }, [appointments]);
+
+  useEffect(() => {
+    breaksRef.current = breaks;
+  }, [breaks]);
 
   // Load schedule on mount
   useEffect(() => {
@@ -139,9 +151,14 @@ export const useAppointments = () => {
           prev.map((brk) => (brk.id === id ? updatedBreak : brk))
             .sort((a, b) => a.start_time.localeCompare(b.start_time))
         );
+        // Clear any previous errors on success
+        setError(null);
         return updatedBreak;
       } catch (err) {
+        console.error('Failed to update break:', err);
         setError('Failed to update break');
+        // Clear error after 3 seconds
+        setTimeout(() => setError(null), 3000);
         throw err;
       }
     },
@@ -155,8 +172,13 @@ export const useAppointments = () => {
     try {
       await deleteBreakService(id);
       setBreaks((prev) => prev.filter((brk) => brk.id !== id));
+      // Clear any previous errors on success
+      setError(null);
     } catch (err) {
+      console.error('Failed to delete break:', err);
       setError('Failed to delete break');
+      // Clear error after 3 seconds
+      setTimeout(() => setError(null), 3000);
       throw err;
     }
   }, []);
@@ -178,12 +200,24 @@ export const useAppointments = () => {
   const autoGenerateBreaks = useCallback(async () => {
     // Don't run if paused
     if (pauseCounterRef.current > 0) {
+      console.log('[AutoGen] Skipped - paused');
       return;
     }
     
+    console.log('[AutoGen] Running...');
+    
     try {
+      // Fetch the absolute latest data from the database to avoid stale data issues
+      const [latestAppointments, latestBreaks] = await Promise.all([
+        fetchAppointments(),
+        fetchBreaks(),
+      ]);
+      
+      console.log('[AutoGen] Latest appointments from DB:', latestAppointments.length);
+      console.log('[AutoGen] Latest breaks from DB:', latestBreaks.length);
+      
       // Sort appointments by start time
-      const sortedAppointments = [...appointments].sort((a, b) =>
+      const sortedAppointments = [...latestAppointments].sort((a, b) =>
         a.start_time.localeCompare(b.start_time)
       );
 
@@ -209,24 +243,35 @@ export const useAppointments = () => {
           // Mark this range as legitimate
           legitimateBreakRanges.add(`${currentEnd.getTime()}-${nextStart.getTime()}`);
 
-          // Check if a break already exists in this range
-          const existingBreak = breaks.find(brk => {
+          // Check if any breaks exist in or overlap with this gap
+          const existingBreaks = latestBreaks.filter(brk => {
             const brkStart = new Date(brk.start_time);
             const brkEnd = new Date(brk.end_time);
-            // Break exists if it overlaps with or touches the gap
-            return (brkStart >= currentEnd && brkStart < nextStart) || 
+            // Break overlaps this gap if:
+            // - It starts within the gap, OR
+            // - It ends within the gap, OR
+            // - It completely spans the gap
+            return (brkStart >= currentEnd && brkStart < nextStart) ||
                    (brkEnd > currentEnd && brkEnd <= nextStart) ||
-                   (brkStart <= currentEnd && brkEnd >= nextStart);
+                   (brkStart < currentEnd && brkEnd > nextStart);
           });
+          
+          // Take the first overlapping break
+          const existingBreak = existingBreaks[0];
 
           if (existingBreak) {
             // Update existing break to match the full gap
             const targetDuration = Math.floor(gapMinutes);
             const targetStart = currentEnd.toISOString();
             
+            console.log(`[AutoGen] Found existing break ${existingBreak.id} in gap between appointments ${i} and ${i+1}`);
+            console.log(`  Current: ${existingBreak.start_time} (${existingBreak.duration_minutes}min)`);
+            console.log(`  Target: ${targetStart} (${targetDuration}min)`);
+            
             // Always update if start time or duration doesn't match the full gap
             if (existingBreak.start_time !== targetStart || 
                 existingBreak.duration_minutes !== targetDuration) {
+              console.log(`  → Will update break ${existingBreak.id}`);
               breaksToUpdate.push({
                 id: existingBreak.id,
                 updates: {
@@ -248,8 +293,16 @@ export const useAppointments = () => {
         }
       }
 
-      // Find breaks that should be deleted (gap > 25 minutes or not between consecutive appointments)
-      for (const brk of breaks) {
+      // Find breaks that should be deleted (gap > 30 minutes or not between consecutive appointments)
+      // Don't delete breaks that are already marked for update
+      const breaksBeingUpdated = new Set(breaksToUpdate.map(u => u.id));
+      
+      for (const brk of latestBreaks) {
+        // Skip breaks that are being updated
+        if (breaksBeingUpdated.has(brk.id)) {
+          continue;
+        }
+        
         const brkStart = new Date(brk.start_time);
         const brkEnd = new Date(brk.end_time);
         
@@ -273,42 +326,73 @@ export const useAppointments = () => {
         }
       }
 
-      // Execute all operations
+      // Execute all operations using the service functions directly
+      // and then update state in a single batch for better performance
+      
+      console.log('[AutoGen] Operations to perform:');
+      console.log('  - Create:', breaksToCreate.length);
+      console.log('  - Update:', breaksToUpdate.length);
+      console.log('  - Delete:', breaksToDelete.length);
+      
+      if (breaksToUpdate.length > 0) {
+        console.log('[AutoGen] Break updates:', breaksToUpdate);
+      }
+      
+      // Execute operations with individual error handling
       for (const breakData of breaksToCreate) {
-        await createBreakService(breakData);
+        try {
+          await createBreakService(breakData);
+        } catch (err) {
+          console.error('[AutoGen] Failed to create break:', err);
+        }
       }
 
       for (const { id, updates } of breaksToUpdate) {
-        await updateBreakService(id, updates);
+        try {
+          await updateBreakService(id, updates);
+        } catch (err) {
+          console.error(`[AutoGen] Failed to update break ${id}:`, err);
+          // Break might have been deleted already, continue with others
+        }
       }
 
       for (const breakId of breaksToDelete) {
-        await deleteBreakService(breakId);
+        try {
+          await deleteBreakService(breakId);
+        } catch (err) {
+          console.error(`[AutoGen] Failed to delete break ${breakId}:`, err);
+          // Break might have been deleted already, continue with others
+        }
       }
 
-      // Refresh breaks if any changes were made
+      // Fetch and update breaks state (even if some operations failed)
       if (breaksToCreate.length > 0 || breaksToUpdate.length > 0 || breaksToDelete.length > 0) {
         const updatedBreaks = await fetchBreaks();
+        console.log('[AutoGen] Fetched updated breaks:', updatedBreaks.length);
         setBreaks(updatedBreaks);
+        console.log('[AutoGen] State updated successfully');
+      } else {
+        console.log('[AutoGen] No changes needed');
       }
     } catch (err) {
       console.error('Failed to auto-generate breaks:', err);
     }
-  }, [appointments, breaks]);
+  }, []); // Empty dependencies - we use refs to access latest state
 
-  // Auto-generate breaks when appointments change
+  // Auto-generate breaks when appointments change or when forced
   useEffect(() => {
     if (!isLoading && pauseCounterRef.current === 0 && appointments.length > 1) {
-      // Clear any existing timeout
+      // Clear any existing timeout to prevent multiple concurrent runs
       if (autoGenerationTimeoutRef.current) {
         clearTimeout(autoGenerationTimeoutRef.current);
       }
       
-      // Use a small delay to prevent infinite loops and allow state to settle
+      // Use a delay to debounce rapid changes
       autoGenerationTimeoutRef.current = setTimeout(() => {
+        console.log('[AutoGen] Timeout triggered, running auto-generation');
         autoGenerateBreaks();
         autoGenerationTimeoutRef.current = null;
-      }, 500);
+      }, 100);
       
       return () => {
         if (autoGenerationTimeoutRef.current) {
@@ -317,7 +401,7 @@ export const useAppointments = () => {
         }
       };
     }
-  }, [appointments.map(a => `${a.id}:${a.start_time}:${a.end_time}`).join('|'), isLoading, autoGenerateBreaks]);
+  }, [appointments.map(a => `${a.id}:${a.start_time}:${a.end_time}`).join('|'), isLoading, autoGenerateBreaks, forceRefresh]);
 
   return {
     appointments,
@@ -338,15 +422,11 @@ export const useAppointments = () => {
     },
     resumeAutoGeneration: () => {
       pauseCounterRef.current = Math.max(0, pauseCounterRef.current - 1);
-      // Trigger auto-generation if counter is back to 0
-      if (pauseCounterRef.current === 0 && appointments.length > 1) {
-        if (autoGenerationTimeoutRef.current) {
-          clearTimeout(autoGenerationTimeoutRef.current);
-        }
-        autoGenerationTimeoutRef.current = setTimeout(() => {
-          autoGenerateBreaks();
-          autoGenerationTimeoutRef.current = null;
-        }, 500);
+      console.log('[AutoGen] Resume called, counter now:', pauseCounterRef.current);
+      // Trigger auto-generation by updating forceRefresh state
+      if (pauseCounterRef.current === 0) {
+        console.log('[AutoGen] Triggering forceRefresh');
+        setForceRefresh(prev => prev + 1);
       }
     },
   };
