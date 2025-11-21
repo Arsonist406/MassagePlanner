@@ -10,10 +10,10 @@
 [functions]
   directory = "netlify/functions"
 
-# Scheduled function to keep Supabase active (prevents 7-day auto-pause)
+# Scheduled function to cleanup old records (older than 2 months)
 # Runs daily at 3:00 AM UTC
 [[scheduled]]
-  name = "supabase-keep-alive"
+  name = "cleanup-old-records"
   cron = "0 3 * * *"
 
 [[redirects]]
