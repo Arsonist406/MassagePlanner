@@ -222,8 +222,8 @@ function App() {
         <ScheduleMiniMapHorizontal
           appointments={filteredAppointments}
           breaks={filteredBreaks}
-          startHour={7}
-          endHour={23}
+          startHour={8}
+          endHour={19}
           scheduleContainerId="schedule-container"
         />
       </div>

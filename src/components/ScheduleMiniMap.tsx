@@ -17,8 +17,8 @@ interface ScheduleMiniMapProps {
 export const ScheduleMiniMap: React.FC<ScheduleMiniMapProps> = ({
   appointments,
   breaks,
-  startHour = 7,
-  endHour = 23,
+  startHour = 8,
+  endHour = 19,
   scheduleContainerId,
 }) => {
   const miniMapRef = useRef<HTMLDivElement>(null);
@@ -130,7 +130,7 @@ export const ScheduleMiniMap: React.FC<ScheduleMiniMapProps> = ({
    */
   const renderHourLabels = () => {
     const labels = [];
-    const displayHours = [7, 9, 11, 13, 15, 17, 19, 21, 23];
+    const displayHours = [8, 10, 12, 14, 16, 18];
     
     for (const hour of displayHours) {
       labels.push(

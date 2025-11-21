@@ -17,8 +17,8 @@ interface ScheduleMiniMapHorizontalProps {
 export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps> = ({
   appointments,
   breaks,
-  startHour = 7,
-  endHour = 23,
+  startHour = 8,
+  endHour = 19,
   scheduleContainerId,
 }) => {
   const miniMapRef = useRef<HTMLDivElement>(null);

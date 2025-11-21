@@ -39,8 +39,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   onEditAppointment,
   pauseAutoGeneration,
   resumeAutoGeneration,
-  startHour = 7,
-  endHour = 23,
+  startHour = 8,
+  endHour = 19,
   pixelsPerHour = 500,
 }) => {
   const [dragItem, setDragItem] = useState<{
@@ -200,14 +200,14 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
     const newEndTime = new Date(newStartTime.getTime() + item.duration_minutes * 60000);
     
-    // Check if new start time is before 7:00
+    // Check if new start time is before 8:00
     const minTime = new Date(newStartTime);
-    minTime.setHours(7, 0, 0, 0);
+    minTime.setHours(8, 0, 0, 0);
     if (newStartTime < minTime) return false;
     
-    // Check if new end time exceeds midnight (24:00)
+    // Check if new end time exceeds 19:00
     const maxTime = new Date(newStartTime);
-    maxTime.setHours(24, 0, 0, 0);
+    maxTime.setHours(19, 0, 0, 0);
     if (newEndTime > maxTime) return false;
     
     // Check for overlaps based on item type
@@ -234,11 +234,11 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     date.setHours(startHour, 0, 0, 0);
     date.setMinutes(date.getMinutes() + totalMinutes);
     
-    // Constrain to 7:00 - 24:00 (midnight)
+    // Constrain to 8:00 - 19:00
     const minTime = new Date();
-    minTime.setHours(7, 0, 0, 0);
+    minTime.setHours(8, 0, 0, 0);
     const maxTime = new Date();
-    maxTime.setHours(24, 0, 0, 0);
+    maxTime.setHours(19, 0, 0, 0);
     
     if (date < minTime) return minTime;
     if (date > maxTime) return maxTime;
@@ -277,19 +277,19 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     console.log('[Move] Current time:', appointment.start_time);
     console.log('[Move] New time:', newStartTime.toISOString());
 
-    // Check if new start time is before 7:00
+    // Check if new start time is before 8:00
     const minTime = new Date(newStartTime);
-    minTime.setHours(7, 0, 0, 0);
+    minTime.setHours(8, 0, 0, 0);
     if (newStartTime < minTime) {
-      alert('Неможливо перемістити: запис виходить за межі робочого часу (7:00)');
+      alert('Неможливо перемістити: запис виходить за межі робочого часу (8:00)');
       return;
     }
 
-    // Check if new end time exceeds midnight (24:00)
+    // Check if new end time exceeds 19:00
     const maxTime = new Date(newStartTime);
-    maxTime.setHours(24, 0, 0, 0);
+    maxTime.setHours(19, 0, 0, 0);
     if (newEndTime > maxTime) {
-      alert('Неможливо перемістити: запис виходить за межі робочого часу (до 24:00)');
+      alert('Неможливо перемістити: запис виходить за межі робочого часу (до 19:00)');
       return;
     }
 
@@ -392,19 +392,19 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     const newStartTime = new Date(currentStartTime.getTime() + minutesShift * 60000);
     const newEndTime = new Date(newStartTime.getTime() + breakItem.duration_minutes * 60000);
 
-    // Check if new start time is before 7:00
+    // Check if new start time is before 8:00
     const minTime = new Date(newStartTime);
-    minTime.setHours(7, 0, 0, 0);
+    minTime.setHours(8, 0, 0, 0);
     if (newStartTime < minTime) {
-      alert('Неможливо перемістити: перерва виходить за межі робочого часу (7:00)');
+      alert('Неможливо перемістити: перерва виходить за межі робочого часу (8:00)');
       return;
     }
 
-    // Check if new end time exceeds midnight (24:00)
+    // Check if new end time exceeds 19:00
     const maxTime = new Date(newStartTime);
-    maxTime.setHours(24, 0, 0, 0);
+    maxTime.setHours(19, 0, 0, 0);
     if (newEndTime > maxTime) {
-      alert('Неможливо перемістити: перерва виходить за межі робочого часу (до 24:00)');
+      alert('Неможливо перемістити: перерва виходить за межі робочого часу (до 19:00)');
       return;
     }
 
@@ -487,7 +487,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (!appointment) return;
 
     if (!canBulkShiftAfter(appointmentId, minutesShift)) {
-      alert('Неможливо перемістити: деякі записи війдуть за межі робочого часу (7:00 - 24:00)');
+      alert('Неможливо перемістити: деякі записи війдуть за межі робочого часу (8:00 - 19:00)');
       return;
     }
 
@@ -527,7 +527,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     if (!appointment) return;
 
     if (!canBulkShiftBefore(appointmentId, minutesShift)) {
-      alert('Неможливо перемістити: деякі записи вийдуть за межі робочого часу (7:00 - 24:00)');
+      alert('Неможливо перемістити: деякі записи вийдуть за межі робочого часу (8:00 - 19:00)');
       return;
     }
 

@@ -164,8 +164,8 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required
           >
-            {Array.from({ length: 17 }, (_, i) => {
-              const hour = (i + 7).toString().padStart(2, '0');
+            {Array.from({ length: 12 }, (_, i) => {
+              const hour = (i + 8).toString().padStart(2, '0');
               return (
                 <option key={hour} value={hour}>
                   {hour}
