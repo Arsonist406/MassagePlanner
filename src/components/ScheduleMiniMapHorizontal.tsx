@@ -130,10 +130,8 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
    */
   const renderHourMarkers = () => {
     const markers = [];
-    // Show markers at key hours
-    const displayHours = [7, 9, 11, 13, 15, 17, 19, 21, 23];
-    
-    for (const hour of displayHours) {
+    // Show markers for every hour
+    for (let hour = startHour; hour <= endHour; hour++) {
       const position = ((hour - startHour) / totalHours) * 100;
       markers.push(
         <div
@@ -141,7 +139,7 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
           className="absolute top-0 bottom-0 flex flex-col items-center"
           style={{ left: `${position}%` }}
         >
-          <div className="w-px h-full bg-gray-300" />
+          <div className="w-px h-full bg-gray-400" />
           <div className="absolute -bottom-5 text-xs text-gray-600 font-medium">
             {hour}
           </div>
@@ -152,7 +150,7 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div className="bg-white rounded-lg shadow p-4 pb-8">
       {/* <h3 className="text-sm font-semibold text-gray-700 mb-3">Огляд дня</h3>
        */}
       {/* Mini-map container */}
@@ -180,7 +178,7 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
                 }}
                 title={`${appointment.client_name} - ${format(parseISO(appointment.start_time), 'HH:mm')}`}
               >
-                <div className="h-full bg-primary-500 rounded-sm" />
+                <div className="h-full bg-primary-500 border border-primary-700 rounded-sm" />
               </div>
             );
           })}
@@ -198,7 +196,7 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
                 }}
                 title={`Перерва - ${format(parseISO(breakItem.start_time), 'HH:mm')}`}
               >
-                <div className="h-full bg-amber-400 border border-amber-500 rounded-sm" />
+                <div className="h-full bg-amber-400 border border-amber-600 rounded-sm" />
               </div>
             );
           })}
@@ -224,26 +222,6 @@ export const ScheduleMiniMapHorizontal: React.FC<ScheduleMiniMapHorizontalProps>
               width: `${viewportWidth}%`,
             }}
           />
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-4 mt-5 pt-2 text-xs text-gray-600">
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 bg-primary-500 rounded flex-shrink-0" />
-          <span>Записи</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 bg-amber-400 border border-amber-500 rounded flex-shrink-0" />
-          <span>Перерви</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-0.5 flex-shrink-0" style={{ backgroundColor: '#1e293b' }} />
-          <span>Поточний час</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 bg-green-600/60 border-2 border-green-600 rounded flex-shrink-0" />
-          <span>Видимість екрану</span>
         </div>
       </div>
     </div>

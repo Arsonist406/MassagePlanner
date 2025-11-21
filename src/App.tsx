@@ -108,9 +108,25 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header - Fixed on Mobile */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white shadow">
+        <div className="flex flex-row items-center justify-between gap-3 px-4 py-3">
+          <h1 className="text-xl font-bold text-gray-900">
+            Планер масажів
+          </h1>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="px-5 py-2.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors font-medium text-base whitespace-nowrap"
+          >
+            {showForm ? 'Сховати' : '+ Запис'}
+          </button>
+        </div>
+      </header>
+
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-row items-center justify-between gap-3 mb-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-32 pt-20 lg:pt-6 lg:pb-6">
+        {/* Header - Desktop Only */}
+        <div className="hidden lg:flex flex-row items-center justify-between gap-3 mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
             Планер масажів
           </h1>
@@ -169,42 +185,20 @@ function App() {
               pauseAutoGeneration={pauseAutoGeneration}
               resumeAutoGeneration={resumeAutoGeneration}
             />
-
-            {/* Horizontal Minimap and Stats - Mobile Only */}
-            <div className="mt-4 space-y-4 lg:hidden">
-              {/* Horizontal Minimap */}
-              <ScheduleMiniMapHorizontal
-                appointments={filteredAppointments}
-                breaks={filteredBreaks}
-                startHour={7}
-                endHour={23}
-                scheduleContainerId="schedule-container"
-              />
-              
-              {/* Aggregated Statistics */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Статистика</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Записи:</span>
-                    <span className="text-xl font-bold text-primary-600">{filteredAppointments.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Перерви:</span>
-                    <span className="text-xl font-bold text-amber-600">{filteredBreaks.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                    <span className="text-sm text-gray-600">Загальна тривалість:</span>
-                    <span className="text-xl font-bold text-green-600">
-                      {filteredAppointments.reduce((sum, apt) => sum + apt.duration_minutes, 0)} хв
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </main>
+
+      {/* Horizontal Minimap - Mobile Footer */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40">
+        <ScheduleMiniMapHorizontal
+          appointments={filteredAppointments}
+          breaks={filteredBreaks}
+          startHour={7}
+          endHour={23}
+          scheduleContainerId="schedule-container"
+        />
+      </div>
     </div>
   );
 }
