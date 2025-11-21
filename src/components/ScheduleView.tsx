@@ -652,42 +652,121 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   }, [dragItem, pixelsPerHour, onUpdateAppointment, onUpdateBreak]);
 
   /**
-   * Render time labels (hourly and 5-minute intervals)
+   * Check if a time (in minutes from start) falls within any block
+   */
+  const isTimeInBlock = (minutesFromStart: number): boolean => {
+    const allBlocks = [...appointments, ...breaks];
+    
+    for (const block of allBlocks) {
+      const blockStart = parseISO(block.start_time);
+      const blockEnd = parseISO(block.end_time);
+      
+      const blockStartMinutes = (blockStart.getHours() - startHour) * 60 + blockStart.getMinutes();
+      const blockEndMinutes = (blockEnd.getHours() - startHour) * 60 + blockEnd.getMinutes();
+      
+      // Check if time is strictly inside the block (not at boundaries)
+      if (minutesFromStart > blockStartMinutes && minutesFromStart < blockEndMinutes) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  /**
+   * Get all block boundary times (start and end times of appointments and breaks)
+   */
+  const getBlockBoundaryTimes = (): Set<number> => {
+    const boundaries = new Set<number>();
+    const allBlocks = [...appointments, ...breaks];
+    
+    for (const block of allBlocks) {
+      const blockStart = parseISO(block.start_time);
+      const blockEnd = parseISO(block.end_time);
+      
+      const blockStartMinutes = (blockStart.getHours() - startHour) * 60 + blockStart.getMinutes();
+      const blockEndMinutes = (blockEnd.getHours() - startHour) * 60 + blockEnd.getMinutes();
+      
+      boundaries.add(blockStartMinutes);
+      boundaries.add(blockEndMinutes);
+    }
+    
+    return boundaries;
+  };
+
+  /**
+   * Render time labels (hourly markers, block boundaries, and 5-minute intervals in gaps)
    */
   const renderTimeLabels = () => {
     const labels = [];
+    const blockBoundaries = getBlockBoundaryTimes();
+    
+    // Generate all hourly markers (always show)
     for (let hour = startHour; hour <= endHour; hour++) {
-      // Hour labels (larger, bold)
+      const minutesFromStart = (hour - startHour) * 60;
       const time = setMinutes(setHours(new Date(), hour), 0);
       labels.push(
         <div
           key={`hour-${hour}`}
           className="absolute left-0 pl-2 text-base sm:text-lg text-gray-700 font-semibold"
-          style={{ top: `${(hour - startHour) * pixelsPerHour - 8}px` }}
+          style={{ top: `${minutesFromStart * (pixelsPerHour / 60) - 8}px` }}
         >
           {format(time, 'HH:mm', { locale: uk })}
         </div>
       );
+    }
+    
+    // Generate block boundary markers
+    blockBoundaries.forEach(minutesFromStart => {
+      // Skip if it's already an hourly marker
+      if (minutesFromStart % 60 === 0) return;
       
-      // 5-minute interval labels (smaller, lighter)
-      if (hour < endHour) {
-        for (let i = 1; i < 12; i++) {
-          const minutes = i * 5;
-          const intervalTime = setMinutes(setHours(new Date(), hour), minutes);
-          // Make 15-minute marks slightly more prominent
-          const isQuarterHour = minutes % 15 === 0;
-          labels.push(
-            <div
-              key={`interval-${hour}-${minutes}`}
-              className={`absolute left-0 pl-2 ${isQuarterHour ? 'text-sm text-gray-500 font-medium' : 'text-xs text-gray-400'}`}
-              style={{ top: `${(hour - startHour) * pixelsPerHour + (minutes / 60) * pixelsPerHour - 6}px` }}
-            >
-              {format(intervalTime, 'HH:mm', { locale: uk })}
-            </div>
-          );
-        }
+      const totalHours = Math.floor(minutesFromStart / 60);
+      const remainingMinutes = minutesFromStart % 60;
+      const time = setMinutes(setHours(new Date(), startHour + totalHours), remainingMinutes);
+      
+      labels.push(
+        <div
+          key={`boundary-${minutesFromStart}`}
+          className="absolute left-0 pl-2 text-sm text-gray-600 font-medium"
+          style={{ top: `${minutesFromStart * (pixelsPerHour / 60) - 6}px` }}
+        >
+          {format(time, 'HH:mm', { locale: uk })}
+        </div>
+      );
+    });
+    
+    // Generate 5-minute interval markers only in gaps (where there are no blocks)
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let i = 1; i < 12; i++) {
+        const minutes = i * 5;
+        const minutesFromStart = (hour - startHour) * 60 + minutes;
+        
+        // Skip if it's an hourly marker
+        if (minutes === 0) continue;
+        
+        // Skip if it's a block boundary
+        if (blockBoundaries.has(minutesFromStart)) continue;
+        
+        // Skip if this time is inside a block
+        if (isTimeInBlock(minutesFromStart)) continue;
+        
+        const intervalTime = setMinutes(setHours(new Date(), hour), minutes);
+        // Make 15-minute marks slightly more prominent
+        const isQuarterHour = minutes % 15 === 0;
+        
+        labels.push(
+          <div
+            key={`interval-${hour}-${minutes}`}
+            className={`absolute left-0 pl-2 ${isQuarterHour ? 'text-sm text-gray-500 font-medium' : 'text-xs text-gray-400'}`}
+            style={{ top: `${minutesFromStart * (pixelsPerHour / 60) - 6}px` }}
+          >
+            {format(intervalTime, 'HH:mm', { locale: uk })}
+          </div>
+        );
       }
     }
+    
     return labels;
   };
 
